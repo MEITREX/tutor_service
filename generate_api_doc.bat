@@ -7,7 +7,7 @@ del api.md
 REM Delete the combined file
 del combined.graphql
 
-set title=Scrum Game API
+set title=Tutor Service API
 
 REM install graphql-markdown if not installed
 if not exist node_modules\graphql-markdown (

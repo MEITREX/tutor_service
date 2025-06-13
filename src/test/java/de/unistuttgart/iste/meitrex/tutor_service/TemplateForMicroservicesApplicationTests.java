@@ -1,4 +1,4 @@
-package de.unistuttgart.iste.meitrex.template;
+package de.unistuttgart.iste.meitrex.tutor_service;
 
 import org.springframework.boot.test.context.SpringBootTest;
 

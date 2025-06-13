@@ -1,58 +1,57 @@
-version: "3"
-
 services:
-  database-template:
-    image: postgres:alpine
+  database:
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     expose:
-      - 1032
+      - 5432
     ports:
-      - "1032:5432"
+      - "5432:5432"
     volumes:
-      - templatedata:/var/lib/postgresql/data
+      - dbdata:/var/lib/postgresql/data
+      - ./../tutor_service/pg-init-scripts:/docker-entrypoint-initdb.d
     environment:
       - POSTGRES_USER=root
       - POSTGRES_PASSWORD=root
-      - POSTGRES_DB=templatedatabase
-  app-template:
+      - POSTGRES_CREATE_DB_TUTOR_SERVICE=tutor_service
+  app-tutor:
     build:
-      context: ./../template-microservice # necessary because otherwise docker-compose overrides the context path when merging multiple docker-compose.yml files
+      context: ./../tutor_service # necessary because otherwise docker-compose overrides the context path when merging multiple docker-compose.yml files
       dockerfile: Dockerfile
-    restart: always
-    container_name: template_microservice
+    restart: unless-stopped
+    container_name: tutor_service
     expose:
-      - 1000
-      - 1001
+      - 1300
+      - 1301
     ports:
-      - "1000:1000"
-      - "1001:1001"
+      - "1300:1300"
+      - "1301:1301"
     depends_on:
-      - database-template
+      - database
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://database-template:5432/templatedatabase
+      SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/tutor_service
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
-  dapr-template:
+  dapr-tutor:
     image: "daprio/daprd"
     command: [
       "./daprd",
-      "--app-id", "template_service",
-      "--app-port", "1001",
-      "--dapr-http-port", "1000",
+      "--app-id", "tutor_service",
+      "--app-port", "1301",
+      "--dapr-http-port", "1300",
       "--resources-path", "./components"
     ]
     volumes:
-      - "./../template-microservice/components/:/components" # Mount our components folder for the runtime to use. The mounted location must match the --resources-path argument.
+      - "./../tutor_service/components/:/components" # Mount our components folder for the runtime to use. The mounted location must match the --resources-path argument.
     depends_on:
-      - app-template
+      - app-tutor
       - redis
-    network_mode: "service:app-template"
+    network_mode: "service:app-tutor"
   redis:
     image: "redis:alpine"
     expose:
       - "6379"
 volumes:
-  templatedata:
+  dbdata:
   testdata:
 networks:
   default:

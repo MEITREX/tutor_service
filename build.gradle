@@ -22,7 +22,7 @@ if (jacocoEnabled.toBoolean()) {
 
 sonarqube {
     properties {
-        property("sonar.projectKey", "MEITREX_template-microservice")
+        property("sonar.projectKey", "MEITREX_tutor_service")
         property("sonar.organization", "meitrex")
         property("sonar.host.url", "https://sonarcloud.io")
     }
@@ -73,8 +73,18 @@ graphqlCodegen {
     fieldsWithResolvers = ["@OnDemand"]
 }
 
-tasks.register('generateApiDocs', Exec) {
-    commandLine 'cmd', '/c', 'generate_api_doc.bat'
+tasks.register('generateApiDocs') {
+    doLast {
+        try {
+            exec {
+                commandLine 'cmd', '/c', 'generate_api_doc.bat'
+            }
+        } catch (Exception e) {
+            // Catch errors when running api documentation generation.
+            // Errors during doc generation shouldn't cause the whole build to fail
+            println "Failed to generate API documentation: ${e.message}"
+        }
+    }
 }
 
 tasks.named('assemble') {
@@ -98,7 +108,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'de.unistuttgart.iste.meitrex:meitrex-common:1.0.2'
+    implementation 'de.unistuttgart.iste.meitrex:meitrex-common:1.2.6'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-graphql'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
