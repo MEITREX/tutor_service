@@ -18,11 +18,13 @@ public class TutorController {
     private final TutorService tutorService;
 
     @MutationMapping
-    public String sendMessage(@Argument final String message) {
+    public String sendMessage(@Argument final String userInput) {
 
-        tutorService.preprocessMessage(message);
+        if (userInput.isEmpty()){
+            return "Eine leere Nachricht kann nicht beantwortet werden";
+        }
 
-        return "Aktuell kann der AI Tutor nicht erreicht werden!";
+        return tutorService.handleUserQuestion(userInput);
     }
 
 }
