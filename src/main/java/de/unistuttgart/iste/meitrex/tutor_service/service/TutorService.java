@@ -75,10 +75,10 @@ public class TutorService {
         
         //Further process the question for the remaining categories 
         if(category == Category.LECTURE){
-            //TODO: Ticket for answering questions about material
+            //TODO: Ticket for answering questions about material (Tests nicht vergessen!)
             return "Aktuell kann ich noch keine Fragen zum Lehrmaterial beantworten :(";
         } else if (category == Category.SYSTEM) {
-            //TODO: Ticket for answering questions about system
+            //TODO: Ticket for answering questions about system (Tests nicht vergessen!)
             return "Aktuell kann ich noch keine Fragen zum MEITREX System beantworten :(";
         }
 

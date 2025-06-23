@@ -10,3 +10,5 @@ scalar LocalTime
 scalar UUID @specifiedBy(url: "https://tools.ietf.org/html/rfc4122")
 # will be mapped to URL in Java
 scalar Url @specifiedBy(url:"https://www.w3.org/Addressing/URL/url-spec.txt")
+# will be mapped to String
+scalar JSON @specifiedBy(url:"https://www.json.org/json-en.html")
