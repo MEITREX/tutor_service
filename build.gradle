@@ -123,7 +123,7 @@ dependencies {
     runtimeOnly 'org.postgresql:postgresql'
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
     annotationProcessor 'org.projectlombok:lombok'
-    testImplementation 'de.unistuttgart.iste.meitrex:meitrex-common-test:1.0.2'
+    testImplementation 'de.unistuttgart.iste.meitrex:meitrex-common-test:1.2.6'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework:spring-webflux'
     testImplementation 'org.springframework.graphql:spring-graphql-test'
