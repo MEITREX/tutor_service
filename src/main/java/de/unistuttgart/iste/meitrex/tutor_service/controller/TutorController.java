@@ -9,6 +9,7 @@ import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.stereotype.Controller;
 
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Controller
@@ -18,13 +19,18 @@ public class TutorController {
     private final TutorService tutorService;
 
     @MutationMapping
-    public String sendMessage(@Argument final String userInput) {
+    public String sendMessage(@Argument final String userInput, @Argument final UUID courseId) {
 
         if (userInput.isEmpty()){
             return "Eine leere Nachricht kann nicht beantwortet werden";
         }
 
-        return tutorService.handleUserQuestion(userInput);
+        return tutorService.handleUserQuestion(userInput, courseId);
+    }
+
+    @QueryMapping
+    public String _empty(){
+        throw new UnsupportedOperationException("This service supports only mutations but needs a query.");
     }
 
 }

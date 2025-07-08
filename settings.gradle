@@ -8,3 +8,5 @@ sourceControl {
         producesModule('de.unistuttgart.iste.meitrex:meitrex-common-test')
     }
 }
+
+includeBuild('../content_service')
