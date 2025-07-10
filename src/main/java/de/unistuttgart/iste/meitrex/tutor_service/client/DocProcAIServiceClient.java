@@ -18,10 +18,11 @@ public class DocProcAIServiceClient {
     }
 
     public List<SemanticSearchResult> semanticSearch(String queryText, List<UUID> contentIdsOfCourse) {
+        System.out.println("IDS in the Service Client class: " + contentIdsOfCourse);
 
         final String semanticSearchQuery = """
             query ($queryText: String!, $contentWhitelist: [UUID!]!) {
-                _internal_noauth_semanticSearch(queryText: $queryText, $contentWhitelist: $$contentWhitelist) {
+                _internal_noauth_semanticSearch(queryText: $queryText, contentWhitelist: $contentWhitelist) {
                     score
                     ... on MediaRecordSegmentSemanticSearchResult {
                       __typename
@@ -36,7 +37,7 @@ public class DocProcAIServiceClient {
         try {
             return graphQlClient.document(semanticSearchQuery)
                     .variable("queryText", queryText)
-                    .variable("$contentWhitelist", contentIdsOfCourse)
+                    .variable("contentWhitelist", contentIdsOfCourse)
                     .execute()
                     .handle((ClientGraphQlResponse response, SynchronousSink<List<SemanticSearchResult>> sink) -> {
                         if (response.isValid()) {

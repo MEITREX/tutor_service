@@ -17,11 +17,11 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TutorService {
 
-    private final String model = "mistral-nemo";
+    private final String model = "llama3:8b-instruct-q4_0";
     private final DocProcAIServiceClient docProcAiServiceClient;
     private final ContentServiceClient contentServiceClient;
 
-    private String ERROR_MESSAGE = ("Ups etwas ist schiefgegangen!"
+    private String ERROR_MESSAGE = ("Ups etwas ist schiefgegangen! "
             + "Die Anfrage kann nicht verarbeitet werden. Bitte versuchen Sie es nocheinmal");
 
     private static final List<String> PROMPT_TEMPLATES = List.of(
@@ -103,7 +103,7 @@ public class TutorService {
             return docProcAiServiceClient.semanticSearch(question, contentIdsOfCourse);
 
         } catch (ContentServiceConnectionException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException(String.valueOf(e));
         }
     }
 
@@ -123,7 +123,10 @@ public class TutorService {
                     ollamaService.parseResponse(response, CategorizedQuestion.class);
             return parsedResponse.orElseGet(() -> new CategorizedQuestion("", Category.ERROR));
 
-        }catch (IOException | InterruptedException | RuntimeException e){
+        }catch (IOException | RuntimeException e){
+            return new CategorizedQuestion("", Category.ERROR);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             return new CategorizedQuestion("", Category.ERROR);
         }
 

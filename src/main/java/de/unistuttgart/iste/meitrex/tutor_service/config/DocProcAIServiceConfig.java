@@ -11,7 +11,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 @Configuration
 public class DocProcAIServiceConfig {
 
-    @Value("${docProcAIService.url}")
+    @Value("${docproc.url}")
     private String docProcAIServiceUrl;
 
     @Bean

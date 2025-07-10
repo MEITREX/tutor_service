@@ -5,7 +5,6 @@ import de.unistuttgart.iste.meitrex.tutor_service.config.OllamaConfig;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.OllamaRequest;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.OllamaResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -23,16 +22,7 @@ public class OllamaService {
     private final OllamaConfig config;
 
     private final ObjectMapper jsonMapper = new ObjectMapper();
-    private final HttpClient client;
-
-    protected OllamaService(){
-        this.config = new OllamaConfig();
-        this.client = HttpClient.newHttpClient();
-    }
-
-    public OllamaService(@Autowired OllamaConfig config) {
-        this(config, HttpClient.newHttpClient());
-    }
+    private final HttpClient client = HttpClient.newHttpClient();
 
     /**
      * query the ollama server to query the LLM
@@ -53,12 +43,17 @@ public class OllamaService {
 
         HttpResponse<String> response = client.send(req, HttpResponse.BodyHandlers.ofString());
 
-        return jsonMapper.readValue(response.body(), OllamaResponse.class);
+        OllamaResponse result = jsonMapper.readValue(response.body(), OllamaResponse.class);
+
+        if (result.getError() != null) {
+            throw new RuntimeException("Ollama returned error: " + result.getError());
+        }
+
+        return result;
     }
 
     /**
-     * parse a ollama response to a specify type. It expects the response to be a valid json
-     *
+     * parse an ollama response to a specify type. It expects the response to be a valid json
      * If it fails to parse the response, it returns an empty optional
      *
      * @param ollamaResponse the response from the ollama server
