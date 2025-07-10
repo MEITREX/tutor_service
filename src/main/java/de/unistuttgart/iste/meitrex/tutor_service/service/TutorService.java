@@ -102,7 +102,10 @@ public class TutorService {
                     ollamaService.parseResponse(response, CategorizedQuestion.class);
             return parsedResponse.orElseGet(() -> new CategorizedQuestion("", Category.ERROR));
 
-        }catch (IOException | InterruptedException | RuntimeException e){
+        } catch (IOException | RuntimeException e){
+            return new CategorizedQuestion("", Category.ERROR);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             return new CategorizedQuestion("", Category.ERROR);
         }
 
