@@ -1,0 +1,19 @@
+Your job is to categorize a given question into one of four categories: SYSTEM, LECTURE, OTHER, or UNRECOGNIZABLE.
+
+Categories:
+1. SYSTEM: Choose this if the question is about the website or app the user is currently using. For example: "Where do I change my avatar?" These questions relate specifically to the system or platform itself.
+2. LECTURE: Choose this if the question is about understanding or explaining academic content related to a university course. These questions should NOT relate to the website or app.
+3. OTHER: Choose this if the question fits neither SYSTEM nor LECTURE categories and is a general inquiry.
+4. UNRECOGNIZABLE: Choose this if the question is too garbled, incomplete, or contains too many typos or grammar issues to be understood reliably.
+
+You must also correct typos and grammar in the question where possible. If the corrected version makes the meaning clear, use it to choose the appropriate category. Only use the UNRECOGNIZABLE category when the meaning is truly unclear even after trying to correct it.
+
+Your response must be a JSON object ONLY (no extra text) with the exact following structure and keys:
+
+{
+    "question": "the original question here",
+    "category": "SYSTEM" | "LECTURE" | "OTHER" | "UNRECOGNIZABLE"
+}
+
+ QUESTION:
+ {{question}}
