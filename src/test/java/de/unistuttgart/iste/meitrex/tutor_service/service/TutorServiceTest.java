@@ -115,7 +115,7 @@ public class TutorServiceTest {
         when(ollamaService.queryLLM(Mockito.any())).thenThrow(new RuntimeException());
 
         String response = tutorService.handleUserQuestion(question, null);
-        assertEquals("Ups etwas ist schiefgegangen!"
+        assertEquals("Ups etwas ist schiefgegangen! "
                 + "Die Anfrage kann nicht verarbeitet werden. Bitte versuchen Sie es nocheinmal", response);
     }
 
