@@ -83,6 +83,11 @@ public class TutorService {
                       + "gehen Sie bitte in den Kurs auf den sich diese Frage bezieht. Vielen Dank! :)";
             }
             List<SemanticSearchResult> relevantSegments = semanticSearch(userQuestion, courseId);
+
+            if(relevantSegments.isEmpty()){
+                return "Es wurde keine Antwort in der Vorlesung gefunden.";
+            }
+
             //TODO: Ticket for answering questions about material (Tests nicht vergessen!)
             return "Es wurden " + relevantSegments.size() + " relevante Segmente gefunden. "
                     + "Aktuell kann ich noch keine Fragen zum Lehrmaterial beantworten :(";
@@ -104,6 +109,8 @@ public class TutorService {
 
         } catch (ContentServiceConnectionException e) {
             throw new RuntimeException(String.valueOf(e));
+        } catch (RuntimeException e) {
+            return List.of();
         }
     }
 
