@@ -1,5 +1,6 @@
 package de.unistuttgart.iste.meitrex.tutor_service.controller;
 
+import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.LectureQuestionResponse;
 import de.unistuttgart.iste.meitrex.tutor_service.service.TutorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -8,7 +9,6 @@ import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.stereotype.Controller;
 
-import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -19,10 +19,10 @@ public class TutorController {
     private final TutorService tutorService;
 
     @MutationMapping
-    public String sendMessage(@Argument final String userInput, @Argument final UUID courseId) {
+    public LectureQuestionResponse sendMessage(@Argument final String userInput, @Argument final UUID courseId) {
 
         if (userInput.isEmpty()){
-            return "Eine leere Nachricht kann nicht beantwortet werden";
+            return new LectureQuestionResponse("Eine leere Nachricht kann nicht beantwortet werden");
         }
 
         return tutorService.handleUserQuestion(userInput, courseId);

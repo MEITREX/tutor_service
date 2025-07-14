@@ -1,5 +1,6 @@
 package de.unistuttgart.iste.meitrex.tutor_service.controller;
 
+import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.LectureQuestionResponse;
 import de.unistuttgart.iste.meitrex.tutor_service.service.TutorService;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -24,17 +25,17 @@ public class TutorControllerTest {
 
     @Test
     void testSendMessage_withEmptyInput() {
-        String answer = tutorController.sendMessage("", new UUID(0, 0));
-        assertEquals("Eine leere Nachricht kann nicht beantwortet werden", answer);
+        LectureQuestionResponse answer = tutorController.sendMessage("", new UUID(0, 0));
+        assertEquals("Eine leere Nachricht kann nicht beantwortet werden", answer.getAnswer());
     }
 
     @Test
     void testSendMessage_withValidInput() {
         String question = "How do i upload my assignments?";
-        String expectedResponse = "Response for the question";
+        LectureQuestionResponse expectedResponse = new LectureQuestionResponse("Response for the question");
         when(tutorService.handleUserQuestion(question, new UUID(0,0))).thenReturn(expectedResponse);
 
-        String answer = tutorController.sendMessage(question, new UUID(0, 0));
+        LectureQuestionResponse answer = tutorController.sendMessage(question, new UUID(0, 0));
 
         assertEquals(expectedResponse, answer);
         verify(tutorService).handleUserQuestion(question, new UUID(0,0));

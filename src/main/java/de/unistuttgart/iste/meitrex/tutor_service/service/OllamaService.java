@@ -32,7 +32,7 @@ public class OllamaService {
      * @throws InterruptedException
      */
     public OllamaResponse queryLLM(OllamaRequest request) throws IOException, InterruptedException {
-
+        System.out.println("queryLLM");
         final String json = jsonMapper.writeValueAsString(request);
 
         HttpRequest req = HttpRequest.newBuilder()
@@ -62,6 +62,7 @@ public class OllamaService {
      * @param <ResponseType> the type to cast to
      */
     public <ResponseType> Optional<ResponseType> parseResponse(OllamaResponse ollamaResponse, Class<ResponseType> responseType) {
+        System.out.println("parseResponse");
         final String response = ollamaResponse.getResponse();
         if(responseType == null || response == null) {
             return Optional.empty();

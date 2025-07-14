@@ -1,5 +1,6 @@
 package de.unistuttgart.iste.meitrex.tutor_service.persistence.models;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
@@ -9,7 +10,8 @@ import lombok.Setter;
 @Builder
 public class SemanticSearchResult {
     private double score;
-    private String __typename;
+    @JsonProperty("__typename")
+    private String typename;
     private MediaRecordSegment mediaRecordSegment;
 
 }

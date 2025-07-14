@@ -28,6 +28,9 @@ public class DocProcAIServiceClient {
                       __typename
                       mediaRecordSegment {
                         id
+                        ... on DocumentRecordSegment {
+                          text
+                        }
                       }
                     }
                 }
