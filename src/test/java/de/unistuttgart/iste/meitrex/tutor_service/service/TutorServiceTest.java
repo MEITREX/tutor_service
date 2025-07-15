@@ -1,22 +1,35 @@
 package de.unistuttgart.iste.meitrex.tutor_service.service;
 
 
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.CategorizedQuestion;
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.Category;
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.OllamaResponse;
+import de.unistuttgart.iste.meitrex.common.testutil.InjectCurrentUserHeader;
+import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
+import de.unistuttgart.iste.meitrex.content_service.client.ContentServiceClient;
+import de.unistuttgart.iste.meitrex.content_service.exception.ContentServiceConnectionException;
+import de.unistuttgart.iste.meitrex.tutor_service.client.DocProcAIServiceClient;
+import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.*;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
+import static de.unistuttgart.iste.meitrex.common.testutil.TestUsers.userWithMembershipInCourseWithId;
 import static org.mockito.Mockito.when;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TutorServiceTest {
 
     private final OllamaService ollamaService = Mockito.mock(OllamaService.class) ;
-    private final TutorService tutorService = new TutorService(ollamaService);
+    private final DocProcAIServiceClient docProcAIService = Mockito.mock(DocProcAIServiceClient.class);
+    private final ContentServiceClient contentService = Mockito.mock(ContentServiceClient.class);
+    private final TutorService tutorService = new TutorService(docProcAIService, contentService, ollamaService);
+
+    private final UUID courseId = UUID.randomUUID();
+
+    @InjectCurrentUserHeader
+    private final LoggedInUser loggedInUser = userWithMembershipInCourseWithId(courseId, LoggedInUser.UserRoleInCourse.STUDENT);
 
     @Test
     void testHandleUserQuestion_withUnrecognizableCategory() throws IOException, InterruptedException {
@@ -26,7 +39,7 @@ public class TutorServiceTest {
         when(ollamaService.parseResponse(Mockito.any(), Mockito.eq(CategorizedQuestion.class)))
                 .thenReturn(Optional.of(categorizedQuestion));
 
-        String response = tutorService.handleUserQuestion(question);
+        String response = tutorService.handleUserQuestion(question, null, loggedInUser);
         assertEquals("Ich konnte Ihre Frage leider nicht verstehen."
                 + "Formulieren Sie die Frage bitte anders und stellen Sie diese erneut. Vielen Dank :)", response);
     }
@@ -39,21 +52,56 @@ public class TutorServiceTest {
         when(ollamaService.parseResponse(Mockito.any(), Mockito.eq(CategorizedQuestion.class)))
                 .thenReturn(Optional.of(categorizedQuestion));
 
-        String response = tutorService.handleUserQuestion(question);
+        String response = tutorService.handleUserQuestion(question, null, loggedInUser);
         assertEquals("So eine Art von Nachricht kann ich derzeit nicht beantworten. Bei Fragen über"
                 + " Vorlesungsmaterialien oder das MEITREX System kann ich Ihnen dennoch behilflich sein :)", response);
     }
 
     @Test
-    void testHandleUserQuestion_withLectureCategory() throws IOException, InterruptedException {
+    void testHandleUserQuestion_withLectureCategoryNoCourseId() throws IOException, InterruptedException {
         String question = "What is the difference between supervised and unsupervised training?";
         CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question, Category.LECTURE);
         when(ollamaService.queryLLM(Mockito.any())).thenReturn(new OllamaResponse());
         when(ollamaService.parseResponse(Mockito.any(), Mockito.eq(CategorizedQuestion.class)))
                 .thenReturn(Optional.of(categorizedQuestion));
 
-        String response = tutorService.handleUserQuestion(question);
-        assertEquals("Aktuell kann ich noch keine Fragen zum Lehrmaterial beantworten :(", response);
+        String expectedAnswer = "Es ist etwas schiefgegangen! Sollte es sich um eine Frage über "
+                + "Vorlesungsmaterialien handeln, gehen Sie bitte in den Kurs auf den sich diese Frage bezieht. "
+                + "Vielen Dank! :)";
+
+        String response = tutorService.handleUserQuestion(question, null, loggedInUser);
+        assertEquals(expectedAnswer, response);
+    }
+
+    @Test
+    void testHandleUserQuestion_withLectureCategoryValidCourseId() throws IOException, InterruptedException, ContentServiceConnectionException {
+        String question = "What is the difference between supervised and unsupervised training?";
+        List<UUID> mockIds = List.of(UUID.randomUUID(), UUID.randomUUID());
+        CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question, Category.LECTURE);
+        List<SemanticSearchResult> dummyResults = List.of(
+                SemanticSearchResult.builder()
+                        .score(0.95)
+                        .__typename("VideoSegment")
+                        .mediaRecordSegment(MediaRecordSegment.builder().id(UUID.randomUUID()).build())
+                        .build(),
+                SemanticSearchResult.builder()
+                        .score(0.88)
+                        .__typename("VideoSegment")
+                        .mediaRecordSegment(MediaRecordSegment.builder().id(UUID.randomUUID()).build())
+                        .build()
+        );
+
+        when(ollamaService.queryLLM(Mockito.any())).thenReturn(new OllamaResponse());
+        when(ollamaService.parseResponse(Mockito.any(), Mockito.eq(CategorizedQuestion.class)))
+                .thenReturn(Optional.of(categorizedQuestion));
+        when(contentService.queryContentIdsOfCourse(courseId)).thenReturn(mockIds);
+        when(docProcAIService.semanticSearch(Mockito.any(), Mockito.any())).thenReturn(dummyResults);
+
+        String expectedAnswer = "Es wurden " + dummyResults.size() + " relevante Segmente gefunden. "
+                + "Aktuell kann ich noch keine Fragen zum Lehrmaterial beantworten :(";
+
+        String response = tutorService.handleUserQuestion(question, courseId, loggedInUser);
+        assertEquals(expectedAnswer, response);
     }
 
     @Test
@@ -64,7 +112,7 @@ public class TutorServiceTest {
         when(ollamaService.parseResponse(Mockito.any(), Mockito.eq(CategorizedQuestion.class)))
                 .thenReturn(Optional.of(categorizedQuestion));
 
-        String response = tutorService.handleUserQuestion(question);
+        String response = tutorService.handleUserQuestion(question, null, loggedInUser);
         assertEquals("Aktuell kann ich noch keine Fragen zum MEITREX System beantworten :(", response);
     }
 
@@ -73,8 +121,8 @@ public class TutorServiceTest {
         String question = "What is the difference between supervised and unsupervised training?";
         when(ollamaService.queryLLM(Mockito.any())).thenThrow(new RuntimeException());
 
-        String response = tutorService.handleUserQuestion(question);
-        assertEquals("Ups etwas ist schiefgegangen!"
+        String response = tutorService.handleUserQuestion(question, null, loggedInUser);
+        assertEquals("Ups etwas ist schiefgegangen! "
                 + "Die Anfrage kann nicht verarbeitet werden. Bitte versuchen Sie es nocheinmal", response);
     }
 

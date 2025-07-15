@@ -4,6 +4,6 @@ type Mutation {
     Send the message from the user in the AI ChatBot
     The message gets preprocessed to be categorized after which a different answer service/logic will be used.
     """
-    sendMessage(userInput: String!): String!
+    sendMessage(userInput: String!, courseId: UUID): String!
 
 }

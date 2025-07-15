@@ -29,6 +29,8 @@ public class OllamaResponse {
     String doneReason;
     @JsonProperty("context")
     long[] context;
+    @JsonProperty("error")
+    String error;
 
 
     /**
@@ -139,4 +141,7 @@ public class OllamaResponse {
     public long[] getContext() {
         return context;
     }
+
+    @JsonIgnore
+    public String getError() {return error;}
 }

@@ -1,9 +1,11 @@
 package de.unistuttgart.iste.meitrex.tutor_service.service;
 
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.CategorizedQuestion;
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.Category;
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.OllamaRequest;
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.OllamaResponse;
+import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
+import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser.UserRoleInCourse;
+import de.unistuttgart.iste.meitrex.content_service.client.ContentServiceClient;
+import de.unistuttgart.iste.meitrex.content_service.exception.ContentServiceConnectionException;
+import de.unistuttgart.iste.meitrex.tutor_service.client.DocProcAIServiceClient;
+import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.util.Optional;
@@ -11,14 +13,19 @@ import java.util.Optional;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.UUID;
+
+import static de.unistuttgart.iste.meitrex.common.user_handling.UserCourseAccessValidator.validateUserHasAccessToCourse;
 
 @Service
 @RequiredArgsConstructor
 public class TutorService {
 
-    private final String model = "mistral-nemo";
+    private final String model = "llama3:8b-instruct-q4_0";
+    private final DocProcAIServiceClient docProcAiServiceClient;
+    private final ContentServiceClient contentServiceClient;
 
-    private String ERROR_MESSAGE = ("Ups etwas ist schiefgegangen!"
+    private String ERROR_MESSAGE = ("Ups etwas ist schiefgegangen! "
             + "Die Anfrage kann nicht verarbeitet werden. Bitte versuchen Sie es nocheinmal");
 
     private static final List<String> PROMPT_TEMPLATES = List.of(
@@ -57,7 +64,7 @@ public class TutorService {
      * @param userQuestion The question the user asked the AI Tutor
      * @return The answer of the LLM or "Error message"
      */
-    public String handleUserQuestion(String userQuestion){
+    public String handleUserQuestion(String userQuestion, UUID courseId, LoggedInUser currentUser){
 
         CategorizedQuestion categorizedQuestion = preprocessQuestion(userQuestion);
 
@@ -75,8 +82,20 @@ public class TutorService {
         
         //Further process the question for the remaining categories 
         if(category == Category.LECTURE){
+            if(courseId == null){
+              return "Es ist etwas schiefgegangen! Sollte es sich um eine Frage über Vorlesungsmaterialien handeln, "
+                      + "gehen Sie bitte in den Kurs auf den sich diese Frage bezieht. Vielen Dank! :)";
+            }
+            validateUserHasAccessToCourse(currentUser, UserRoleInCourse.STUDENT, courseId);
+            List<SemanticSearchResult> relevantSegments = semanticSearch(userQuestion, courseId);
+
+            if(relevantSegments.isEmpty()){
+                return "Es wurde keine Antwort in der Vorlesung gefunden.";
+            }
+
             //TODO: Ticket for answering questions about material (Tests nicht vergessen!)
-            return "Aktuell kann ich noch keine Fragen zum Lehrmaterial beantworten :(";
+            return "Es wurden " + relevantSegments.size() + " relevante Segmente gefunden. "
+                    + "Aktuell kann ich noch keine Fragen zum Lehrmaterial beantworten :(";
         } else if (category == Category.SYSTEM) {
             //TODO: Ticket for answering questions about system (Tests nicht vergessen!)
             return "Aktuell kann ich noch keine Fragen zum MEITREX System beantworten :(";
@@ -84,6 +103,20 @@ public class TutorService {
 
         return ERROR_MESSAGE;
 
+    }
+
+    private List<SemanticSearchResult> semanticSearch(String question, UUID courseId) {
+        try {
+
+            List<UUID> contentIdsOfCourse = contentServiceClient.queryContentIdsOfCourse(courseId);
+
+            return docProcAiServiceClient.semanticSearch(question, contentIdsOfCourse);
+
+        } catch (ContentServiceConnectionException e) {
+            throw new RuntimeException(String.valueOf(e));
+        } catch (RuntimeException e) {
+            return List.of();
+        }
     }
 
     /**
@@ -102,7 +135,7 @@ public class TutorService {
                     ollamaService.parseResponse(response, CategorizedQuestion.class);
             return parsedResponse.orElseGet(() -> new CategorizedQuestion("", Category.ERROR));
 
-        } catch (IOException | RuntimeException e){
+        }catch (IOException | RuntimeException e){
             return new CategorizedQuestion("", Category.ERROR);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
