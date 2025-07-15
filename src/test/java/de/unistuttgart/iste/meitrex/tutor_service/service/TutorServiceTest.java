@@ -39,9 +39,10 @@ public class TutorServiceTest {
         when(ollamaService.parseResponse(Mockito.any(), Mockito.eq(CategorizedQuestion.class)))
                 .thenReturn(Optional.of(categorizedQuestion));
 
-        String response = tutorService.handleUserQuestion(question, null, loggedInUser);
-        assertEquals("Ich konnte Ihre Frage leider nicht verstehen."
-                + "Formulieren Sie die Frage bitte anders und stellen Sie diese erneut. Vielen Dank :)", response);
+        LectureQuestionResponse response = tutorService.handleUserQuestion(question, null, loggedInUser);
+        assertEquals("Unfortunately, I couldn't understand your question. " +
+                        "Please rephrase it and ask again. Thank you :)",
+                response.getAnswer());
     }
 
     @Test
@@ -52,9 +53,10 @@ public class TutorServiceTest {
         when(ollamaService.parseResponse(Mockito.any(), Mockito.eq(CategorizedQuestion.class)))
                 .thenReturn(Optional.of(categorizedQuestion));
 
-        String response = tutorService.handleUserQuestion(question, null, loggedInUser);
-        assertEquals("So eine Art von Nachricht kann ich derzeit nicht beantworten. Bei Fragen über"
-                + " Vorlesungsmaterialien oder das MEITREX System kann ich Ihnen dennoch behilflich sein :)", response);
+        LectureQuestionResponse response = tutorService.handleUserQuestion(question, null, loggedInUser);
+        assertEquals("I'm currently unable to answer this type of message. " +
+                        "However, I can still help you with questions about lecture materials or the MEITREX system :)",
+                response.getAnswer());
     }
 
     @Test
@@ -65,12 +67,11 @@ public class TutorServiceTest {
         when(ollamaService.parseResponse(Mockito.any(), Mockito.eq(CategorizedQuestion.class)))
                 .thenReturn(Optional.of(categorizedQuestion));
 
-        String expectedAnswer = "Es ist etwas schiefgegangen! Sollte es sich um eine Frage über "
-                + "Vorlesungsmaterialien handeln, gehen Sie bitte in den Kurs auf den sich diese Frage bezieht. "
-                + "Vielen Dank! :)";
+        String expectedAnswer = "Something went wrong! If your question is about lecture materials, " +
+                "please navigate to the course it relates to. Thank you! :)";
 
-        String response = tutorService.handleUserQuestion(question, null, loggedInUser);
-        assertEquals(expectedAnswer, response);
+        LectureQuestionResponse response = tutorService.handleUserQuestion(question, null, loggedInUser);
+        assertEquals(expectedAnswer, response.getAnswer());
     }
 
     @Test
@@ -81,27 +82,29 @@ public class TutorServiceTest {
         List<SemanticSearchResult> dummyResults = List.of(
                 SemanticSearchResult.builder()
                         .score(0.95)
-                        .__typename("VideoSegment")
+                        .typename("VideoSegment")
                         .mediaRecordSegment(MediaRecordSegment.builder().id(UUID.randomUUID()).build())
                         .build(),
                 SemanticSearchResult.builder()
                         .score(0.88)
-                        .__typename("VideoSegment")
+                        .typename("VideoSegment")
                         .mediaRecordSegment(MediaRecordSegment.builder().id(UUID.randomUUID()).build())
                         .build()
         );
+        String expectedAnswer = dummyResults.size() + " relevant segments were found. " +
+                "At the moment, I’m not yet able to answer questions about the course material :(";
 
         when(ollamaService.queryLLM(Mockito.any())).thenReturn(new OllamaResponse());
         when(ollamaService.parseResponse(Mockito.any(), Mockito.eq(CategorizedQuestion.class)))
                 .thenReturn(Optional.of(categorizedQuestion));
+        when(ollamaService.parseResponse(Mockito.any(), Mockito.eq(LectureQuestionResponse.class)))
+                .thenReturn(Optional.of(new LectureQuestionResponse(expectedAnswer)));
         when(contentService.queryContentIdsOfCourse(courseId)).thenReturn(mockIds);
         when(docProcAIService.semanticSearch(Mockito.any(), Mockito.any())).thenReturn(dummyResults);
 
-        String expectedAnswer = "Es wurden " + dummyResults.size() + " relevante Segmente gefunden. "
-                + "Aktuell kann ich noch keine Fragen zum Lehrmaterial beantworten :(";
 
-        String response = tutorService.handleUserQuestion(question, courseId, loggedInUser);
-        assertEquals(expectedAnswer, response);
+        LectureQuestionResponse response = tutorService.handleUserQuestion(question, courseId, loggedInUser);
+        assertEquals(expectedAnswer, response.getAnswer());
     }
 
     @Test
@@ -112,8 +115,9 @@ public class TutorServiceTest {
         when(ollamaService.parseResponse(Mockito.any(), Mockito.eq(CategorizedQuestion.class)))
                 .thenReturn(Optional.of(categorizedQuestion));
 
-        String response = tutorService.handleUserQuestion(question, null, loggedInUser);
-        assertEquals("Aktuell kann ich noch keine Fragen zum MEITREX System beantworten :(", response);
+        LectureQuestionResponse response = tutorService.handleUserQuestion(question, null, loggedInUser);
+        assertEquals("At the moment, I can't answer any questions about the MEITREX system :(",
+                response.getAnswer());
     }
 
     @Test
@@ -121,9 +125,9 @@ public class TutorServiceTest {
         String question = "What is the difference between supervised and unsupervised training?";
         when(ollamaService.queryLLM(Mockito.any())).thenThrow(new RuntimeException());
 
-        String response = tutorService.handleUserQuestion(question, null, loggedInUser);
-        assertEquals("Ups etwas ist schiefgegangen! "
-                + "Die Anfrage kann nicht verarbeitet werden. Bitte versuchen Sie es nocheinmal", response);
+        LectureQuestionResponse response = tutorService.handleUserQuestion(question, null, loggedInUser);
+        assertEquals("Oops, something went wrong! " +
+                "The request could not be processed. Please try again.", response.getAnswer());
     }
 
 }

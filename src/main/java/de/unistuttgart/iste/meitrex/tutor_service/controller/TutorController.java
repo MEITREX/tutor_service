@@ -1,5 +1,6 @@
 package de.unistuttgart.iste.meitrex.tutor_service.controller;
 
+import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.LectureQuestionResponse;
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
 import de.unistuttgart.iste.meitrex.tutor_service.service.TutorService;
 import lombok.RequiredArgsConstructor;
@@ -20,10 +21,10 @@ public class TutorController {
     private final TutorService tutorService;
 
     @MutationMapping
-    public String sendMessage(@Argument final String userInput, @Argument final UUID courseId, @ContextValue final LoggedInUser currentUser) {
+    public LectureQuestionResponse sendMessage(@Argument final String userInput, @Argument final UUID courseId, @ContextValue final LoggedInUser currentUser) {
 
         if (userInput.isEmpty()){
-            return "Eine leere Nachricht kann nicht beantwortet werden";
+            return new LectureQuestionResponse("An empty message cannot be answered.");
         }
 
         return tutorService.handleUserQuestion(userInput, courseId, currentUser);

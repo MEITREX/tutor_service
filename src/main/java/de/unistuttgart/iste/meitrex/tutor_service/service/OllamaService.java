@@ -32,7 +32,6 @@ public class OllamaService {
      * @throws InterruptedException
      */
     public OllamaResponse queryLLM(OllamaRequest request) throws IOException, InterruptedException {
-
         final String json = jsonMapper.writeValueAsString(request);
 
         HttpRequest req = HttpRequest.newBuilder()

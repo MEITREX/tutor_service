@@ -1,5 +1,6 @@
 package de.unistuttgart.iste.meitrex.tutor_service.controller;
 
+import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.LectureQuestionResponse;
 import de.unistuttgart.iste.meitrex.common.testutil.InjectCurrentUserHeader;
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
 import de.unistuttgart.iste.meitrex.tutor_service.service.TutorService;
@@ -32,17 +33,17 @@ public class TutorControllerTest {
 
     @Test
     void testSendMessage_withEmptyInput() {
-        String answer = tutorController.sendMessage("", courseId, loggedInUser);
-        assertEquals("Eine leere Nachricht kann nicht beantwortet werden", answer);
+        LectureQuestionResponse answer = tutorController.sendMessage("", courseId, loggedInUser);
+        assertEquals("An empty message cannot be answered.", answer.getAnswer());
     }
 
     @Test
     void testSendMessage_withValidInput() {
         String question = "How do i upload my assignments?";
-        String expectedResponse = "Response for the question";
+        LectureQuestionResponse expectedResponse = new LectureQuestionResponse("Response for the question");
         when(tutorService.handleUserQuestion(question, courseId, loggedInUser)).thenReturn(expectedResponse);
 
-        String answer = tutorController.sendMessage(question, courseId, loggedInUser);
+        LectureQuestionResponse answer = tutorController.sendMessage(question, courseId, loggedInUser);
 
         assertEquals(expectedResponse, answer);
         verify(tutorService).handleUserQuestion(question, courseId, loggedInUser);

@@ -4,13 +4,10 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.UUID;
-
-@Setter
 @Getter
+@Setter
 @Builder
-public class MediaRecordSegment {
-    private UUID id;
-    private String text;
+public class TemplateArgs {
+    private String argumentName;
+    private String argumentValue;
 }
-

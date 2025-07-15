@@ -24,14 +24,15 @@ public class TutorService {
     private final String model = "llama3:8b-instruct-q4_0";
     private final DocProcAIServiceClient docProcAiServiceClient;
     private final ContentServiceClient contentServiceClient;
+    private final OllamaService ollamaService;
 
-    private String ERROR_MESSAGE = ("Ups etwas ist schiefgegangen! "
-            + "Die Anfrage kann nicht verarbeitet werden. Bitte versuchen Sie es nocheinmal");
+    private final String ERROR_MESSAGE = ("Oops, something went wrong! " +
+            "The request could not be processed. Please try again.");
 
     private static final List<String> PROMPT_TEMPLATES = List.of(
-            "categorize_message_prompt.txt"
+            "categorize_message_prompt.txt",
+            "answer_lecture_question_prompt.txt"
     );
-    private final OllamaService ollamaService;
 
     private String getTemplate(String templateFileName)  {
         try{
@@ -52,9 +53,15 @@ public class TutorService {
         }
     }
 
-    private String fillTemplate(String promptTemplate, String question) {
+    private String fillTemplate(String promptTemplate, List<TemplateArgs> args) {
         String filledTemplate = promptTemplate;
-        filledTemplate = filledTemplate.replace("{{question}}", question);
+        for (TemplateArgs arg : args) {
+            String placeholder = "{{" + arg.getArgumentName() + "}}";
+            if(!promptTemplate.contains(placeholder)){
+                throw new IllegalArgumentException("No such argument in this prompt");
+            }
+            filledTemplate = filledTemplate.replace(placeholder, arg.getArgumentValue());
+        }
         return filledTemplate;
     }
 
@@ -64,7 +71,7 @@ public class TutorService {
      * @param userQuestion The question the user asked the AI Tutor
      * @return The answer of the LLM or "Error message"
      */
-    public String handleUserQuestion(String userQuestion, UUID courseId, LoggedInUser currentUser){
+    public LectureQuestionResponse handleUserQuestion(String userQuestion, UUID courseId, LoggedInUser currentUser){
 
         CategorizedQuestion categorizedQuestion = preprocessQuestion(userQuestion);
 
@@ -72,37 +79,50 @@ public class TutorService {
         
         //Return Answers for user-input that cannot be handled right now
         if(category == Category.UNRECOGNIZABLE){
-            return ("Ich konnte Ihre Frage leider nicht verstehen."
-                    + "Formulieren Sie die Frage bitte anders und stellen Sie diese erneut. Vielen Dank :)");
+            String unrecognizable = ("Unfortunately, I couldn't understand your question. " +
+                    "Please rephrase it and ask again. Thank you :)");
+            return new LectureQuestionResponse(unrecognizable);
         }
         if(category == Category.OTHER){
-            return ("So eine Art von Nachricht kann ich derzeit nicht beantworten. Bei Fragen über"
-                    + " Vorlesungsmaterialien oder das MEITREX System kann ich Ihnen dennoch behilflich sein :)");
+            String other = ("I'm currently unable to answer this type of message. " +
+                    "However, I can still help you with questions about lecture materials or the MEITREX system :)");
+            return new LectureQuestionResponse(other);
         }
         
         //Further process the question for the remaining categories 
         if(category == Category.LECTURE){
-            if(courseId == null){
-              return "Es ist etwas schiefgegangen! Sollte es sich um eine Frage über Vorlesungsmaterialien handeln, "
-                      + "gehen Sie bitte in den Kurs auf den sich diese Frage bezieht. Vielen Dank! :)";
-            }
-            validateUserHasAccessToCourse(currentUser, UserRoleInCourse.STUDENT, courseId);
-            List<SemanticSearchResult> relevantSegments = semanticSearch(userQuestion, courseId);
-
-            if(relevantSegments.isEmpty()){
-                return "Es wurde keine Antwort in der Vorlesung gefunden.";
-            }
-
-            //TODO: Ticket for answering questions about material (Tests nicht vergessen!)
-            return "Es wurden " + relevantSegments.size() + " relevante Segmente gefunden. "
-                    + "Aktuell kann ich noch keine Fragen zum Lehrmaterial beantworten :(";
+            return answerLectureQuestion(userQuestion, courseId, currentUser);
         } else if (category == Category.SYSTEM) {
-            //TODO: Ticket for answering questions about system (Tests nicht vergessen!)
-            return "Aktuell kann ich noch keine Fragen zum MEITREX System beantworten :(";
+            return new LectureQuestionResponse(
+                    "At the moment, I can't answer any questions about the MEITREX system :(");
         }
+        return new LectureQuestionResponse(ERROR_MESSAGE);
+    }
 
-        return ERROR_MESSAGE;
+    private LectureQuestionResponse answerLectureQuestion(String question, UUID courseId, LoggedInUser currentUser){
+        if(courseId == null){
+            String response =
+                "Something went wrong! If your question is about lecture materials, " +
+                        "please navigate to the course it relates to. Thank you! :)";
+            return new LectureQuestionResponse(response);
+        }
+        validateUserHasAccessToCourse(currentUser, UserRoleInCourse.STUDENT, courseId);
+        List<SemanticSearchResult> relevantSegments = semanticSearch(question, courseId);
 
+        if(relevantSegments.isEmpty()){
+            return new LectureQuestionResponse("No answer was found in the lecture.");
+        }
+        LectureQuestionResponse errorResponse = new LectureQuestionResponse(ERROR_MESSAGE);
+        String prompt = getTemplate(PROMPT_TEMPLATES.get(1));
+        List<TemplateArgs> promptArgs = List.of(
+            TemplateArgs.builder().argumentName("question").argumentValue(question).build(),
+            TemplateArgs
+                .builder()
+                .argumentName("content")
+                .argumentValue(formatRetrievedContent(relevantSegments))
+                .build()
+        );
+        return startQuery(LectureQuestionResponse.class, prompt, promptArgs, errorResponse);
     }
 
     private List<SemanticSearchResult> semanticSearch(String question, UUID courseId) {
@@ -125,23 +145,47 @@ public class TutorService {
      * @return categorized question
      */
     public CategorizedQuestion preprocessQuestion(final String userQuestion){
-        try{
-            String prompt = getTemplate(PROMPT_TEMPLATES.get(0));
-            String filledPrompt = fillTemplate(prompt, userQuestion);
+        CategorizedQuestion error = new CategorizedQuestion("", Category.ERROR);
+        String prompt = getTemplate(PROMPT_TEMPLATES.get(0));
+        List<TemplateArgs> preprocessArgs = List.of(TemplateArgs.builder()
+                .argumentName("question")
+                .argumentValue(userQuestion)
+                .build());
+        return startQuery(CategorizedQuestion.class, prompt, preprocessArgs, error);
+    }
+
+    private <ResponseType> ResponseType startQuery(
+            Class<ResponseType> responseType, String prompt, List<TemplateArgs> templateArgs, ResponseType error) {
+        try {
+            String filledPrompt = fillTemplate(prompt, templateArgs);
 
             OllamaRequest request = new OllamaRequest(model, filledPrompt);
             OllamaResponse response = ollamaService.queryLLM(request);
-            Optional<CategorizedQuestion> parsedResponse =
-                    ollamaService.parseResponse(response, CategorizedQuestion.class);
-            return parsedResponse.orElseGet(() -> new CategorizedQuestion("", Category.ERROR));
-
-        }catch (IOException | RuntimeException e){
-            return new CategorizedQuestion("", Category.ERROR);
+            Optional<ResponseType> parsedResponse =
+                    ollamaService.parseResponse(response, responseType);
+            return parsedResponse.orElse(error);
+        }catch (IOException | RuntimeException exception){
+            System.err.println(exception.getMessage());
+            return error;
         } catch (InterruptedException e) {
+            System.err.println(e.getMessage());
             Thread.currentThread().interrupt();
-            return new CategorizedQuestion("", Category.ERROR);
+            return error;
         }
+    }
 
+    public String formatRetrievedContent(List<SemanticSearchResult> results) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < results.size(); i++) {
+            SemanticSearchResult result = results.get(i);
+            MediaRecordSegment segment = result.getMediaRecordSegment();
+            if (segment == null || segment.getText() == null) continue;
+
+            sb.append("[").append(i + 1).append("] ")
+                    .append(segment.getText().trim())
+                    .append("\n\n");
+        }
+        return sb.toString().trim();
     }
 
 }
