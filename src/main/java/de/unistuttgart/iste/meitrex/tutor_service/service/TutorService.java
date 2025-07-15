@@ -91,7 +91,7 @@ public class TutorService {
         
         //Further process the question for the remaining categories 
         if(category == Category.LECTURE){
-            return answerLectureQuestion(userQuestion, courseId);
+            return answerLectureQuestion(userQuestion, courseId, currentUser);
         } else if (category == Category.SYSTEM) {
             return new LectureQuestionResponse(
                     "At the moment, I can't answer any questions about the MEITREX system :(");
@@ -99,7 +99,7 @@ public class TutorService {
         return new LectureQuestionResponse(ERROR_MESSAGE);
     }
 
-    private LectureQuestionResponse answerLectureQuestion(String question, UUID courseId){
+    private LectureQuestionResponse answerLectureQuestion(String question, UUID courseId, LoggedInUser currentUser){
         if(courseId == null){
             String response =
                 "Something went wrong! If your question is about lecture materials, " +
