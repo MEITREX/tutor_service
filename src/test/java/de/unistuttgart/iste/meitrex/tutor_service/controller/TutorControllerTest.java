@@ -26,7 +26,7 @@ public class TutorControllerTest {
     @Test
     void testSendMessage_withEmptyInput() {
         LectureQuestionResponse answer = tutorController.sendMessage("", new UUID(0, 0));
-        assertEquals("Eine leere Nachricht kann nicht beantwortet werden", answer.getAnswer());
+        assertEquals("An empty message cannot be answered.", answer.getAnswer());
     }
 
     @Test

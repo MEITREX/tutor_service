@@ -22,7 +22,7 @@ public class TutorController {
     public LectureQuestionResponse sendMessage(@Argument final String userInput, @Argument final UUID courseId) {
 
         if (userInput.isEmpty()){
-            return new LectureQuestionResponse("Eine leere Nachricht kann nicht beantwortet werden");
+            return new LectureQuestionResponse("An empty message cannot be answered.");
         }
 
         return tutorService.handleUserQuestion(userInput, courseId);

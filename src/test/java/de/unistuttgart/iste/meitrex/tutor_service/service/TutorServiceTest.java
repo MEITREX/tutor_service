@@ -32,8 +32,8 @@ public class TutorServiceTest {
                 .thenReturn(Optional.of(categorizedQuestion));
 
         LectureQuestionResponse response = tutorService.handleUserQuestion(question, null);
-        assertEquals("Ich konnte Ihre Frage leider nicht verstehen."
-                + "Formulieren Sie die Frage bitte anders und stellen Sie diese erneut. Vielen Dank :)",
+        assertEquals("Unfortunately, I couldn't understand your question. " +
+                        "Please rephrase it and ask again. Thank you :)",
                 response.getAnswer());
     }
 
@@ -46,8 +46,8 @@ public class TutorServiceTest {
                 .thenReturn(Optional.of(categorizedQuestion));
 
         LectureQuestionResponse response = tutorService.handleUserQuestion(question, null);
-        assertEquals("So eine Art von Nachricht kann ich derzeit nicht beantworten. Bei Fragen über"
-                + " Vorlesungsmaterialien oder das MEITREX System kann ich Ihnen dennoch behilflich sein :)",
+        assertEquals("I'm currently unable to answer this type of message. " +
+                        "However, I can still help you with questions about lecture materials or the MEITREX system :)",
                 response.getAnswer());
     }
 
@@ -59,9 +59,8 @@ public class TutorServiceTest {
         when(ollamaService.parseResponse(Mockito.any(), Mockito.eq(CategorizedQuestion.class)))
                 .thenReturn(Optional.of(categorizedQuestion));
 
-        String expectedAnswer = "Es ist etwas schiefgegangen! Sollte es sich um eine Frage über "
-                + "Vorlesungsmaterialien handeln, gehen Sie bitte in den Kurs auf den sich diese Frage bezieht. "
-                + "Vielen Dank! :)";
+        String expectedAnswer = "Something went wrong! If your question is about lecture materials, " +
+                "please navigate to the course it relates to. Thank you! :)";
 
         LectureQuestionResponse response = tutorService.handleUserQuestion(question, null);
         assertEquals(expectedAnswer, response.getAnswer());
@@ -85,8 +84,8 @@ public class TutorServiceTest {
                         .mediaRecordSegment(MediaRecordSegment.builder().id(UUID.randomUUID()).build())
                         .build()
         );
-        String expectedAnswer = "Es wurden " + dummyResults.size() + " relevante Segmente gefunden. "
-                + "Aktuell kann ich noch keine Fragen zum Lehrmaterial beantworten :(";
+        String expectedAnswer = dummyResults.size() + " relevant segments were found. " +
+                "At the moment, I’m not yet able to answer questions about the course material :(";
 
         when(ollamaService.queryLLM(Mockito.any())).thenReturn(new OllamaResponse());
         when(ollamaService.parseResponse(Mockito.any(), Mockito.eq(CategorizedQuestion.class)))
@@ -110,7 +109,7 @@ public class TutorServiceTest {
                 .thenReturn(Optional.of(categorizedQuestion));
 
         LectureQuestionResponse response = tutorService.handleUserQuestion(question, null);
-        assertEquals("Aktuell kann ich noch keine Fragen zum MEITREX System beantworten :(",
+        assertEquals("At the moment, I can't answer any questions about the MEITREX system :(",
                 response.getAnswer());
     }
 
@@ -120,8 +119,8 @@ public class TutorServiceTest {
         when(ollamaService.queryLLM(Mockito.any())).thenThrow(new RuntimeException());
 
         LectureQuestionResponse response = tutorService.handleUserQuestion(question, null);
-        assertEquals("Ups etwas ist schiefgegangen! "
-                + "Die Anfrage kann nicht verarbeitet werden. Bitte versuchen Sie es nocheinmal", response.getAnswer());
+        assertEquals("Oops, something went wrong! " +
+                "The request could not be processed. Please try again.", response.getAnswer());
     }
 
 }

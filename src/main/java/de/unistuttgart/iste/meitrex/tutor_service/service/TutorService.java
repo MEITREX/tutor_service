@@ -22,8 +22,8 @@ public class TutorService {
     private final ContentServiceClient contentServiceClient;
     private final OllamaService ollamaService;
 
-    private final String ERROR_MESSAGE = ("Ups etwas ist schiefgegangen! "
-            + "Die Anfrage kann nicht verarbeitet werden. Bitte versuchen Sie es nocheinmal");
+    private final String ERROR_MESSAGE = ("Oops, something went wrong! " +
+            "The request could not be processed. Please try again.");
 
     private static final List<String> PROMPT_TEMPLATES = List.of(
             "categorize_message_prompt.txt",
@@ -50,7 +50,6 @@ public class TutorService {
     }
 
     private String fillTemplate(String promptTemplate, List<TemplateArgs> args) {
-        System.out.println("Filling template!");
         String filledTemplate = promptTemplate;
         for (TemplateArgs arg : args) {
             String placeholder = "{{" + arg.getArgumentName() + "}}";
@@ -76,13 +75,13 @@ public class TutorService {
         
         //Return Answers for user-input that cannot be handled right now
         if(category == Category.UNRECOGNIZABLE){
-            String unrecognizable = ("Ich konnte Ihre Frage leider nicht verstehen."
-                    + "Formulieren Sie die Frage bitte anders und stellen Sie diese erneut. Vielen Dank :)");
+            String unrecognizable = ("Unfortunately, I couldn't understand your question. " +
+                    "Please rephrase it and ask again. Thank you :)");
             return new LectureQuestionResponse(unrecognizable);
         }
         if(category == Category.OTHER){
-            String other = ("So eine Art von Nachricht kann ich derzeit nicht beantworten. Bei Fragen über"
-                + " Vorlesungsmaterialien oder das MEITREX System kann ich Ihnen dennoch behilflich sein :)");
+            String other = ("I'm currently unable to answer this type of message. " +
+                    "However, I can still help you with questions about lecture materials or the MEITREX system :)");
             return new LectureQuestionResponse(other);
         }
         
@@ -91,7 +90,7 @@ public class TutorService {
             return answerLectureQuestion(userQuestion, courseId);
         } else if (category == Category.SYSTEM) {
             return new LectureQuestionResponse(
-                    "Aktuell kann ich noch keine Fragen zum MEITREX System beantworten :(");
+                    "At the moment, I can't answer any questions about the MEITREX system :(");
         }
         return new LectureQuestionResponse(ERROR_MESSAGE);
     }
@@ -99,14 +98,14 @@ public class TutorService {
     private LectureQuestionResponse answerLectureQuestion(String question, UUID courseId){
         if(courseId == null){
             String response =
-                "Es ist etwas schiefgegangen! Sollte es sich um eine Frage über Vorlesungsmaterialien handeln, "
-                + "gehen Sie bitte in den Kurs auf den sich diese Frage bezieht. Vielen Dank! :)";
+                "Something went wrong! If your question is about lecture materials, " +
+                        "please navigate to the course it relates to. Thank you! :)";
             return new LectureQuestionResponse(response);
         }
         List<SemanticSearchResult> relevantSegments = semanticSearch(question, courseId);
 
         if(relevantSegments.isEmpty()){
-            return new LectureQuestionResponse("Es wurde keine Antwort in der Vorlesung gefunden.");
+            return new LectureQuestionResponse("No answer was found in the lecture.");
         }
         LectureQuestionResponse errorResponse = new LectureQuestionResponse(ERROR_MESSAGE);
         String prompt = getTemplate(PROMPT_TEMPLATES.get(1));
@@ -181,8 +180,6 @@ public class TutorService {
                     .append(segment.getText().trim())
                     .append("\n\n");
         }
-        sb.append("[1] Security in distributed systems involves authentication, authorization, confidentiality, integrity, non-repudiation, and availability to protect data and services across multiple nodes, ensuring only authorized access, secure communication, and resilience against attacks or failures.");
-
         return sb.toString().trim();
     }
 

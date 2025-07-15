@@ -18,7 +18,6 @@ public class DocProcAIServiceClient {
     }
 
     public List<SemanticSearchResult> semanticSearch(String queryText, List<UUID> contentIdsOfCourse) {
-        System.out.println("IDS in the Service Client class: " + contentIdsOfCourse);
 
         final String semanticSearchQuery = """
             query ($queryText: String!, $contentWhitelist: [UUID!]!) {
