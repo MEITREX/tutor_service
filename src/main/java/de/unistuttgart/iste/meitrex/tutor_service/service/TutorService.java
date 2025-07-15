@@ -1,5 +1,7 @@
 package de.unistuttgart.iste.meitrex.tutor_service.service;
 
+import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
+import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser.UserRoleInCourse;
 import de.unistuttgart.iste.meitrex.content_service.client.ContentServiceClient;
 import de.unistuttgart.iste.meitrex.content_service.exception.ContentServiceConnectionException;
 import de.unistuttgart.iste.meitrex.tutor_service.client.DocProcAIServiceClient;
@@ -12,6 +14,8 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
+
+import static de.unistuttgart.iste.meitrex.common.user_handling.UserCourseAccessValidator.validateUserHasAccessToCourse;
 
 @Service
 @RequiredArgsConstructor
@@ -60,7 +64,7 @@ public class TutorService {
      * @param userQuestion The question the user asked the AI Tutor
      * @return The answer of the LLM or "Error message"
      */
-    public String handleUserQuestion(String userQuestion, UUID courseId){
+    public String handleUserQuestion(String userQuestion, UUID courseId, LoggedInUser currentUser){
 
         CategorizedQuestion categorizedQuestion = preprocessQuestion(userQuestion);
 
@@ -82,6 +86,7 @@ public class TutorService {
               return "Es ist etwas schiefgegangen! Sollte es sich um eine Frage über Vorlesungsmaterialien handeln, "
                       + "gehen Sie bitte in den Kurs auf den sich diese Frage bezieht. Vielen Dank! :)";
             }
+            validateUserHasAccessToCourse(currentUser, UserRoleInCourse.STUDENT, courseId);
             List<SemanticSearchResult> relevantSegments = semanticSearch(userQuestion, courseId);
 
             if(relevantSegments.isEmpty()){
