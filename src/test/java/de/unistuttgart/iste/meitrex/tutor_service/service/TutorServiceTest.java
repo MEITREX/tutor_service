@@ -83,12 +83,12 @@ public class TutorServiceTest {
                 SemanticSearchResult.builder()
                         .score(0.95)
                         .typename("VideoSegment")
-                        .mediaRecordSegment(MediaRecordSegment.builder().id(UUID.randomUUID()).build())
+                        .mediaRecordSegment(DocumentRecordSegment.builder().page(2).text("Dummy content").build())
                         .build(),
                 SemanticSearchResult.builder()
                         .score(0.88)
                         .typename("VideoSegment")
-                        .mediaRecordSegment(MediaRecordSegment.builder().id(UUID.randomUUID()).build())
+                        .mediaRecordSegment(DocumentRecordSegment.builder().page(3).text("Dummy content").build())
                         .build()
         );
         String expectedAnswer = dummyResults.size() + " relevant segments were found. " +
