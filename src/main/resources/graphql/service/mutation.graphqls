@@ -10,4 +10,5 @@ type Mutation {
 
 type LectureQuestionResponse {
     answer: String!
+    relevantLinks: [String!]!
 }
