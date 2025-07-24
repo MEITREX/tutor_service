@@ -8,6 +8,8 @@ import de.unistuttgart.iste.meitrex.tutor_service.client.DocProcAIServiceClient;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
 import java.util.Optional;
 
 import java.io.*;
@@ -112,6 +114,17 @@ public class TutorService {
         if(relevantSegments.isEmpty()){
             return new LectureQuestionResponse("No answer was found in the lecture.");
         }
+
+        List<DocumentRecordSegment> documentSegments = relevantSegments.stream()
+                .map(SemanticSearchResult::getMediaRecordSegment)
+                .filter(segment -> segment instanceof DocumentRecordSegment)
+                .map(segment -> (DocumentRecordSegment) segment)
+                .toList();
+
+        if(documentSegments.isEmpty()){
+            return new LectureQuestionResponse("No answer was found in the documents of the lecture.");
+        }
+
         LectureQuestionResponse errorResponse = new LectureQuestionResponse(ERROR_MESSAGE);
         String prompt = getTemplate(PROMPT_TEMPLATES.get(1));
         List<TemplateArgs> promptArgs = List.of(
@@ -119,10 +132,19 @@ public class TutorService {
             TemplateArgs
                 .builder()
                 .argumentName("content")
-                .argumentValue(formatRetrievedContent(relevantSegments))
+                .argumentValue(formatRetrievedContent(documentSegments))
                 .build()
         );
-        return startQuery(LectureQuestionResponse.class, prompt, promptArgs, errorResponse);
+
+        LectureQuestionResponse response = startQuery(LectureQuestionResponse.class, prompt, promptArgs, errorResponse);
+
+        List<String> relevantLinks = relevantSegments.stream()
+                .flatMap(segment -> generateLinkForSegment(segment, courseId).stream())
+                .toList();
+
+        response.setLinks(relevantLinks);
+
+        return response;
     }
 
     private List<SemanticSearchResult> semanticSearch(String question, UUID courseId) {
@@ -174,18 +196,49 @@ public class TutorService {
         }
     }
 
-    public String formatRetrievedContent(List<SemanticSearchResult> results) {
+    private String formatRetrievedContent(List<DocumentRecordSegment> documentSegments) {
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < results.size(); i++) {
-            SemanticSearchResult result = results.get(i);
-            MediaRecordSegment segment = result.getMediaRecordSegment();
-            if (segment == null || segment.getText() == null) continue;
+        for (int i = 0; i < documentSegments.size(); i++) {
+            DocumentRecordSegment segment = documentSegments.get(i);
+            String text = segment.getText();
+            if (text == null || text.isBlank()) continue;
 
             sb.append("[").append(i + 1).append("] ")
-                    .append(segment.getText().trim())
+                    .append(text.trim())
                     .append("\n\n");
         }
         return sb.toString().trim();
+    }
+
+    private List<String> generateLinkForSegment(SemanticSearchResult result, UUID courseId) {
+        MediaRecordSegment segment = result.getMediaRecordSegment();
+        MediaRecord mediaRecord = segment.getMediaRecord();
+        if (mediaRecord == null) return List.of();
+        if (mediaRecord.getContents() == null || mediaRecord.getContents().isEmpty()) return List.of();
+
+        List<String> links = new ArrayList<>();
+
+        for (Content content : mediaRecord.getContents()) {
+            if (content == null || content.getId() == null) continue;
+
+            UUID contentId = content.getId();
+            UUID mediaRecordId = mediaRecord.getId();
+
+            if (segment instanceof DocumentRecordSegment docSegment) {
+                int page = docSegment.getPage() + 1;
+                String url = "/courses/" + courseId + "/media/" + contentId +
+                        "?selectedDocument=" + mediaRecordId + "&page=" + page;
+                links.add(url);
+
+            } else if (segment instanceof VideoRecordSegment videoSegment) {
+                double startTime = videoSegment.getStartTime();
+                String url = "/courses/" + courseId + "/media/" + contentId +
+                        "?selectedVideo=" + mediaRecordId + "&videoPosition=" + startTime;
+                links.add(url);
+            }
+        }
+
+        return links;
     }
 
 }
