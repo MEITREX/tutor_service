@@ -2,6 +2,7 @@ package de.unistuttgart.iste.meitrex.tutor_service.controller;
 
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.LectureQuestionResponse;
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
+import de.unistuttgart.iste.meitrex.tutor_service.service.HintService;
 import de.unistuttgart.iste.meitrex.tutor_service.service.TutorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,10 +20,14 @@ import java.util.UUID;
 public class TutorController {
 
     private final TutorService tutorService;
+    private final HintService hintService;
 
     @MutationMapping
-    public LectureQuestionResponse sendMessage(@Argument final String userInput, @Argument final UUID courseId, @ContextValue final LoggedInUser currentUser) {
-
+    public LectureQuestionResponse sendMessage(
+            @Argument final String userInput,
+            @Argument final UUID courseId,
+            @ContextValue final LoggedInUser currentUser
+    ) {
         if (userInput.isEmpty()){
             return new LectureQuestionResponse("An empty message cannot be answered.");
         }
@@ -33,6 +38,18 @@ public class TutorController {
     @QueryMapping
     public String _empty(){
         throw new UnsupportedOperationException("This service supports only mutations but needs a query.");
+    }
+
+    @MutationMapping
+    public String generateHint(
+            @Argument final String questionText,
+            @Argument final UUID courseId,
+            @ContextValue final LoggedInUser currentUser
+    ){
+        if (questionText.isEmpty()){
+            return "No Hint can be generated without a question in the quiz.";
+        }
+        return hintService.generateHintWithQuestion(questionText, courseId, currentUser);
     }
 
 }
