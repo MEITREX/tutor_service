@@ -3,14 +3,10 @@ package de.unistuttgart.iste.meitrex.tutor_service.service;
 
 import de.unistuttgart.iste.meitrex.common.testutil.InjectCurrentUserHeader;
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
-import de.unistuttgart.iste.meitrex.content_service.client.ContentServiceClient;
-import de.unistuttgart.iste.meitrex.content_service.exception.ContentServiceConnectionException;
-import de.unistuttgart.iste.meitrex.tutor_service.client.DocProcAIServiceClient;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.*;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
