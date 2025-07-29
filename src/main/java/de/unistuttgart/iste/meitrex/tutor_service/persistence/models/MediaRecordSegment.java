@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 
 import java.util.UUID;
 
@@ -20,9 +21,8 @@ import java.util.UUID;
 @NoArgsConstructor
 @Getter
 @Setter
+@SuperBuilder
 public abstract class MediaRecordSegment {
-    private UUID id;
-
     @JsonProperty("__typename")
     private String typename;
 

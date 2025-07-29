@@ -26,7 +26,6 @@ public class DocProcAIServiceClient {
                     ... on MediaRecordSegmentSemanticSearchResult {
                       __typename
                       mediaRecordSegment {
-                        id
                         __typename
                         ... on DocumentRecordSegment {
                           page
