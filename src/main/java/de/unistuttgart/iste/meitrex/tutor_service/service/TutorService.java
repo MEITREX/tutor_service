@@ -1,32 +1,21 @@
 package de.unistuttgart.iste.meitrex.tutor_service.service;
 
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
-import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser.UserRoleInCourse;
-import de.unistuttgart.iste.meitrex.content_service.client.ContentServiceClient;
-import de.unistuttgart.iste.meitrex.content_service.exception.ContentServiceConnectionException;
-import de.unistuttgart.iste.meitrex.tutor_service.client.DocProcAIServiceClient;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.Optional;
 
-import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
-
-import static de.unistuttgart.iste.meitrex.common.user_handling.UserCourseAccessValidator.validateUserHasAccessToCourse;
 
 @Service
 @RequiredArgsConstructor
 public class TutorService {
 
-    private final String model = "llama3:8b-instruct-q4_0";
-    private final DocProcAIServiceClient docProcAiServiceClient;
-    private final ContentServiceClient contentServiceClient;
     private final OllamaService ollamaService;
+    private final SemanticSearchService semanticSearchService;
 
     private final String ERROR_MESSAGE = ("Oops, something went wrong! " +
             "The request could not be processed. Please try again.");
@@ -35,38 +24,6 @@ public class TutorService {
             "categorize_message_prompt.txt",
             "answer_lecture_question_prompt.txt"
     );
-
-    private String getTemplate(String templateFileName)  {
-        try{
-            InputStream inputStream = this.getClass().getResourceAsStream("/prompt_templates/" + templateFileName);
-            if (inputStream == null) {
-                throw new FileNotFoundException("Template file not found: " + templateFileName);
-            }
-            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
-            StringBuilder template = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                template.append(line).append("\n");
-            }
-            reader.close();
-            return template.toString();
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to read template file: " + templateFileName, e);
-        }
-    }
-
-    private String fillTemplate(String promptTemplate, List<TemplateArgs> args) {
-        String filledTemplate = promptTemplate;
-        for (TemplateArgs arg : args) {
-            String placeholder = "{{" + arg.getArgumentName() + "}}";
-            if(!promptTemplate.contains(placeholder)){
-                throw new IllegalArgumentException("No such argument in this prompt");
-            }
-            filledTemplate = filledTemplate.replace(placeholder, arg.getArgumentValue());
-        }
-        return filledTemplate;
-    }
-
 
     /**
      * Takes the user input and passes it thorugh the whole pipeline/llm before returning the answer
@@ -108,8 +65,7 @@ public class TutorService {
                         "please navigate to the course it relates to. Thank you! :)";
             return new LectureQuestionResponse(response);
         }
-        validateUserHasAccessToCourse(currentUser, UserRoleInCourse.STUDENT, courseId);
-        List<SemanticSearchResult> relevantSegments = semanticSearch(question, courseId);
+        List<SemanticSearchResult> relevantSegments = semanticSearchService.semanticSearch(question, courseId, currentUser);
 
         if(relevantSegments.isEmpty()){
             return new LectureQuestionResponse("No answer was found in the lecture.");
@@ -126,17 +82,15 @@ public class TutorService {
         }
 
         LectureQuestionResponse errorResponse = new LectureQuestionResponse(ERROR_MESSAGE);
-        String prompt = getTemplate(PROMPT_TEMPLATES.get(1));
+        String prompt = ollamaService.getTemplate(PROMPT_TEMPLATES.get(1));
+        String contentString = semanticSearchService.formatDocumentSegmentsForPrompt(documentSegments);
         List<TemplateArgs> promptArgs = List.of(
             TemplateArgs.builder().argumentName("question").argumentValue(question).build(),
-            TemplateArgs
-                .builder()
-                .argumentName("content")
-                .argumentValue(formatRetrievedContent(documentSegments))
-                .build()
+            TemplateArgs.builder().argumentName("content").argumentValue(contentString).build()
         );
 
-        LectureQuestionResponse response = startQuery(LectureQuestionResponse.class, prompt, promptArgs, errorResponse);
+        LectureQuestionResponse response = ollamaService.startQuery(
+                LectureQuestionResponse.class, prompt, promptArgs, errorResponse);
 
         List<String> relevantLinks = relevantSegments.stream()
                 .flatMap(segment -> generateLinkForSegment(segment, courseId).stream())
@@ -147,20 +101,6 @@ public class TutorService {
         return response;
     }
 
-    private List<SemanticSearchResult> semanticSearch(String question, UUID courseId) {
-        try {
-
-            List<UUID> contentIdsOfCourse = contentServiceClient.queryContentIdsOfCourse(courseId);
-
-            return docProcAiServiceClient.semanticSearch(question, contentIdsOfCourse);
-
-        } catch (ContentServiceConnectionException e) {
-            throw new RuntimeException(String.valueOf(e));
-        } catch (RuntimeException e) {
-            return List.of();
-        }
-    }
-
     /**
      * preprocesses the question send by the user to be categorized into material or system question
      * @param userQuestion The question the user asked the AI Tutor
@@ -168,46 +108,13 @@ public class TutorService {
      */
     public CategorizedQuestion preprocessQuestion(final String userQuestion){
         CategorizedQuestion error = new CategorizedQuestion("", Category.ERROR);
-        String prompt = getTemplate(PROMPT_TEMPLATES.get(0));
+        String templateName = PROMPT_TEMPLATES.get(0);
         List<TemplateArgs> preprocessArgs = List.of(TemplateArgs.builder()
                 .argumentName("question")
                 .argumentValue(userQuestion)
                 .build());
-        return startQuery(CategorizedQuestion.class, prompt, preprocessArgs, error);
-    }
-
-    private <ResponseType> ResponseType startQuery(
-            Class<ResponseType> responseType, String prompt, List<TemplateArgs> templateArgs, ResponseType error) {
-        try {
-            String filledPrompt = fillTemplate(prompt, templateArgs);
-
-            OllamaRequest request = new OllamaRequest(model, filledPrompt);
-            OllamaResponse response = ollamaService.queryLLM(request);
-            Optional<ResponseType> parsedResponse =
-                    ollamaService.parseResponse(response, responseType);
-            return parsedResponse.orElse(error);
-        }catch (IOException | RuntimeException exception){
-            System.err.println(exception.getMessage());
-            return error;
-        } catch (InterruptedException e) {
-            System.err.println(e.getMessage());
-            Thread.currentThread().interrupt();
-            return error;
-        }
-    }
-
-    private String formatRetrievedContent(List<DocumentRecordSegment> documentSegments) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < documentSegments.size(); i++) {
-            DocumentRecordSegment segment = documentSegments.get(i);
-            String text = segment.getText();
-            if (text == null || text.isBlank()) continue;
-
-            sb.append("[").append(i + 1).append("] ")
-                    .append(text.trim())
-                    .append("\n\n");
-        }
-        return sb.toString().trim();
+        String prompt = ollamaService.getTemplate(templateName);
+        return ollamaService.startQuery(CategorizedQuestion.class, "prompt", preprocessArgs, error);
     }
 
     private List<String> generateLinkForSegment(SemanticSearchResult result, UUID courseId) {
