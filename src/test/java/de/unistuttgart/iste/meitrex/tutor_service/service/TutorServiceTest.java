@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.UUID;
 
 import static de.unistuttgart.iste.meitrex.common.testutil.TestUsers.userWithMembershipInCourseWithId;
-import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Mockito.when;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -24,8 +23,6 @@ import static org.hamcrest.Matchers.hasSize;
 public class TutorServiceTest {
 
     private final OllamaService ollamaService = Mockito.mock(OllamaService.class);
-    private final DocProcAIServiceClient docProcAIService = Mockito.mock(DocProcAIServiceClient.class);
-    private final ContentServiceClient contentService = Mockito.mock(ContentServiceClient.class);
     private final SemanticSearchService semanticSearchService = Mockito.mock(SemanticSearchService.class);
     private final TutorService tutorService = new TutorService(ollamaService, semanticSearchService);
 
@@ -35,7 +32,7 @@ public class TutorServiceTest {
     private final LoggedInUser loggedInUser = userWithMembershipInCourseWithId(courseId, LoggedInUser.UserRoleInCourse.STUDENT);
 
     @Test
-    void testHandleUserQuestion_withUnrecognizableCategory() throws IOException, InterruptedException {
+    void testHandleUserQuestion_withUnrecognizableCategory() {
         String question = "jchbjshbcjhsdbc";
         CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question, Category.UNRECOGNIZABLE);
         when(ollamaService.startQuery(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(categorizedQuestion);
@@ -48,7 +45,7 @@ public class TutorServiceTest {
     }
 
     @Test
-    void testHandleUserQuestion_withOtherCategory() throws IOException, InterruptedException {
+    void testHandleUserQuestion_withOtherCategory() {
         String question = "Gib mir ein Rezept für Schokokuchen";
         CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question, Category.OTHER);
         when(ollamaService.startQuery(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(categorizedQuestion);
@@ -61,7 +58,7 @@ public class TutorServiceTest {
     }
 
     @Test
-    void testHandleUserQuestion_withLectureCategoryNoCourseId() throws IOException, InterruptedException {
+    void testHandleUserQuestion_withLectureCategoryNoCourseId() {
         String question = "What is the difference between supervised and unsupervised training?";
         CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question, Category.LECTURE);
         when(ollamaService.startQuery(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(categorizedQuestion);
@@ -75,9 +72,8 @@ public class TutorServiceTest {
     }
 
     @Test
-    void testHandleUserQuestion_withLectureCategoryValidCourseId() throws IOException, InterruptedException, ContentServiceConnectionException {
+    void testHandleUserQuestion_withLectureCategoryValidCourseId() {
         String question = "What is the difference between supervised and unsupervised training?";
-        List<UUID> mockIds = List.of(UUID.randomUUID(), UUID.randomUUID());
         CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question, Category.LECTURE);
         List<SemanticSearchResult> dummyResults = List.of(
                 SemanticSearchResult.builder()
@@ -107,7 +103,7 @@ public class TutorServiceTest {
     }
 
     @Test
-    void testHandleUserQuestion_withSystemCategory() throws IOException, InterruptedException {
+    void testHandleUserQuestion_withSystemCategory() {
         String question = "Where do i upload my assignment?";
         CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question, Category.SYSTEM);
         when(ollamaService.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(),

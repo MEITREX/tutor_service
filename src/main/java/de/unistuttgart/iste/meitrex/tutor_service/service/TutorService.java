@@ -114,7 +114,7 @@ public class TutorService {
                 .argumentValue(userQuestion)
                 .build());
         String prompt = ollamaService.getTemplate(templateName);
-        return ollamaService.startQuery(CategorizedQuestion.class, "prompt", preprocessArgs, error);
+        return ollamaService.startQuery(CategorizedQuestion.class, prompt, preprocessArgs, error);
     }
 
     private List<String> generateLinkForSegment(SemanticSearchResult result, UUID courseId) {
