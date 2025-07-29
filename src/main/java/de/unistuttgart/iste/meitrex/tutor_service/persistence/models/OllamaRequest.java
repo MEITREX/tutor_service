@@ -1,7 +1,9 @@
 package de.unistuttgart.iste.meitrex.tutor_service.persistence.models;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Getter;
 
+@Getter
 public class OllamaRequest {
 
     @JsonProperty("model")
@@ -21,24 +23,4 @@ public class OllamaRequest {
         this(model, prompt, false);
     }
 
-    /**
-     * Getters for the fields
-     */
-    public String getModel() {
-        return model;
-    }
-
-    /**
-     * Getters for the fields
-     */
-    public String getPrompt() {
-        return prompt;
-    }
-
-    /**
-     * Getters for the fields
-     */
-    public boolean isStream() {
-        return stream;
-    }
 }
