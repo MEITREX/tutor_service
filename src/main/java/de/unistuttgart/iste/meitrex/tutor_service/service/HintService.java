@@ -2,6 +2,7 @@ package de.unistuttgart.iste.meitrex.tutor_service.service;
 
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.DocumentRecordSegment;
+import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.HintResponse;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.SemanticSearchResult;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.TemplateArgs;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +21,7 @@ public class HintService {
             "generate_hint.txt"
     );
 
-    public String generateHintWithQuestion(
+    public HintResponse generateHintWithQuestion(
             String questionText,
             UUID courseId,
             final LoggedInUser currentUser
@@ -28,7 +29,7 @@ public class HintService {
         List<SemanticSearchResult> searchResults =
                 semanticSearchService.semanticSearch(questionText, courseId, currentUser);
         if (searchResults.isEmpty()) {
-            return "No relevant content found in the lecture for this question";
+            return new HintResponse("No relevant content found in the lecture for this question");
         }
 
         List<DocumentRecordSegment> documentSegments = searchResults.stream()
@@ -38,7 +39,7 @@ public class HintService {
                 .toList();
 
         if (documentSegments.isEmpty()) {
-            return "No relevant content found in the lecture for this question";
+            return new HintResponse("No relevant content found in the lecture for this question");
         }
 
         String prompt = ollamaService.getTemplate(PROMPT_TEMPLATES.get(0));
@@ -48,7 +49,7 @@ public class HintService {
                 TemplateArgs.builder().argumentName("content").argumentValue(contentString).build()
         );
 
-        return ollamaService.startQuery(String.class, prompt, promptArgs, "An error occurred");
+        return ollamaService.startQuery(HintResponse.class, prompt, promptArgs, new HintResponse("An error occurred"));
     }
 
 }
