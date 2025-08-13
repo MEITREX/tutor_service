@@ -5,10 +5,23 @@ type Mutation {
     The message gets preprocessed to be categorized after which a different answer service/logic will be used.
     """
     sendMessage(userInput: String!, courseId: UUID): LectureQuestionResponse!
-
 }
 
 type LectureQuestionResponse {
     answer: String!
-    relevantLinks: [String!]!
+    sources: [Source!]!
+}
+
+interface Source {
+    mediaRecordId: UUID!
+}
+
+type DocumentSource implements Source {
+    mediaRecordId: UUID!
+    page: Int!
+}
+
+type VideoSource implements Source {
+    mediaRecordId: UUID!
+    startTime: Float!
 }
