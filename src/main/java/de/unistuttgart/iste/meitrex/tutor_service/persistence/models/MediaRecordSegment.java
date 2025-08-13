@@ -24,8 +24,7 @@ import lombok.experimental.SuperBuilder;
 public abstract class MediaRecordSegment {
     @JsonProperty("__typename")
     private String typename;
-
-    private MediaRecord mediaRecord;
+    private UUID mediaRecordId;
 
 }
 

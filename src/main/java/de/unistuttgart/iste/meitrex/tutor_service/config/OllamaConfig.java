@@ -11,4 +11,10 @@ public class OllamaConfig {
     @Value("${ollama.url}")
     private String url;
 
+    @Value("${ollama.model}")
+    private String model;
+
+    @Value("${ollama.endpoint}")
+    private String endpoint;
+
 }

@@ -15,5 +15,23 @@ type Mutation {
 
 type LectureQuestionResponse {
     answer: String!
-    relevantLinks: [String!]!
+    sources: [Source!]!
+}
+
+interface Source {
+    mediaRecordId: UUID!
+}
+
+type DocumentSource implements Source {
+    mediaRecordId: UUID!
+    page: Int!
+}
+
+type VideoSource implements Source {
+    mediaRecordId: UUID!
+    startTime: Float!
+}
+
+type HintResponse {
+    hint: String!
 }

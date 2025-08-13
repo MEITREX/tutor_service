@@ -5,9 +5,8 @@ import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -65,13 +64,17 @@ public class TutorService {
                         "please navigate to the course it relates to. Thank you! :)";
             return new LectureQuestionResponse(response);
         }
-        List<SemanticSearchResult> relevantSegments = semanticSearchService.semanticSearch(question, courseId, currentUser);
+        List<SemanticSearchResult> searchResults = semanticSearchService.semanticSearch(question, courseId, currentUser);
 
-        if(relevantSegments.isEmpty()){
+        List<SemanticSearchResult> segmentSearchResults = searchResults.stream()
+                .filter(result -> result.getMediaRecordSegment() != null)
+                .toList();
+
+        if(segmentSearchResults.isEmpty()){
             return new LectureQuestionResponse("No answer was found in the lecture.");
         }
 
-        List<DocumentRecordSegment> documentSegments = relevantSegments.stream()
+        List<DocumentRecordSegment> documentSegments = segmentSearchResults.stream()
                 .map(SemanticSearchResult::getMediaRecordSegment)
                 .filter(segment -> segment instanceof DocumentRecordSegment)
                 .map(segment -> (DocumentRecordSegment) segment)
@@ -92,11 +95,21 @@ public class TutorService {
         LectureQuestionResponse response = ollamaService.startQuery(
                 LectureQuestionResponse.class, prompt, promptArgs, errorResponse);
 
-        List<String> relevantLinks = relevantSegments.stream()
-                .flatMap(segment -> generateLinkForSegment(segment, courseId).stream())
+        segmentSearchResults.forEach(result -> {
+            if (result.getMediaRecordSegment() instanceof DocumentRecordSegment) {
+                System.out.println("Score for the one with id "
+                        + ((DocumentRecordSegment) result.getMediaRecordSegment()).getPage() + ": " + result.getScore());
+            }
+        });
+
+        List<LectureQuestionResponse.Source> sources = segmentSearchResults.stream()
+                .map(this::generateSource)
+                .filter(Objects::nonNull)
                 .toList();
 
-        response.setLinks(relevantLinks);
+        if(!sources.isEmpty()){
+            response.setSources(sources);
+        }
 
         return response;
     }
@@ -117,35 +130,23 @@ public class TutorService {
         return ollamaService.startQuery(CategorizedQuestion.class, prompt, preprocessArgs, error);
     }
 
-    private List<String> generateLinkForSegment(SemanticSearchResult result, UUID courseId) {
+    private LectureQuestionResponse.Source generateSource(SemanticSearchResult result){
         MediaRecordSegment segment = result.getMediaRecordSegment();
-        MediaRecord mediaRecord = segment.getMediaRecord();
-        if (mediaRecord == null) return List.of();
-        if (mediaRecord.getContents() == null || mediaRecord.getContents().isEmpty()) return List.of();
 
-        List<String> links = new ArrayList<>();
-
-        for (Content content : mediaRecord.getContents()) {
-            if (content == null || content.getId() == null) continue;
-
-            UUID contentId = content.getId();
-            UUID mediaRecordId = mediaRecord.getId();
-
-            if (segment instanceof DocumentRecordSegment docSegment) {
-                int page = docSegment.getPage() + 1;
-                String url = "/courses/" + courseId + "/media/" + contentId +
-                        "?selectedDocument=" + mediaRecordId + "&page=" + page;
-                links.add(url);
-
-            } else if (segment instanceof VideoRecordSegment videoSegment) {
-                double startTime = videoSegment.getStartTime();
-                String url = "/courses/" + courseId + "/media/" + contentId +
-                        "?selectedVideo=" + mediaRecordId + "&videoPosition=" + startTime;
-                links.add(url);
-            }
+        if (segment instanceof DocumentRecordSegment docSegment) {
+            LectureQuestionResponse.DocumentSource docSource = new LectureQuestionResponse.DocumentSource();
+            docSource.setMediaRecordId(docSegment.getMediaRecordId());
+            docSource.setPage(docSegment.getPage());
+            return docSource;
+        } else if (segment instanceof VideoRecordSegment videoSegment) {
+            LectureQuestionResponse.VideoSource videoSource = new LectureQuestionResponse.VideoSource();
+            videoSource.setMediaRecordId(videoSegment.getMediaRecordId());
+            videoSource.setStartTime(videoSegment.getStartTime());
+            return videoSource;
+        } else {
+            return null;
         }
-
-        return links;
     }
+
 
 }

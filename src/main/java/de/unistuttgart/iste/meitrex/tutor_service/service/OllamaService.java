@@ -21,9 +21,6 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class OllamaService {
 
-
-    private final String model = "llama3:8b-instruct-q4_0";
-    private final String endpoint = "api/generate";
     private final OllamaConfig config;
 
     private final ObjectMapper jsonMapper = new ObjectMapper();
@@ -31,7 +28,7 @@ public class OllamaService {
 
     public String getTemplate(String templateFileName)  {
         try{
-            InputStream inputStream = this.getClass().getResourceAsStream("prompt_templates/" + templateFileName);
+            InputStream inputStream = this.getClass().getResourceAsStream("/prompt_templates/" + templateFileName);
             if (inputStream == null) {
                 throw new FileNotFoundException("Template file not found: " + templateFileName);
             }
@@ -66,7 +63,7 @@ public class OllamaService {
         try {
             String filledPrompt = fillTemplate(prompt, templateArgs);
 
-            OllamaRequest request = new OllamaRequest(model, filledPrompt);
+            OllamaRequest request = new OllamaRequest(this.config.getModel(), filledPrompt);
             OllamaResponse response = queryLLM(request);
             Optional<ResponseType> parsedResponse =
                     parseResponse(response, responseType);
@@ -92,7 +89,7 @@ public class OllamaService {
         final String json = jsonMapper.writeValueAsString(request);
 
         HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create(this.config.getUrl() + "/" + endpoint))
+                .uri(URI.create(this.config.getUrl() + "/" + this.config.getEndpoint()))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(json))
                 .build();

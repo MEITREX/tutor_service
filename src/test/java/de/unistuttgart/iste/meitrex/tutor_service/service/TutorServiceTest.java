@@ -13,8 +13,6 @@ import java.util.UUID;
 import static de.unistuttgart.iste.meitrex.common.testutil.TestUsers.userWithMembershipInCourseWithId;
 import static org.mockito.Mockito.when;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasSize;
 
 public class TutorServiceTest {
 
@@ -153,63 +151,4 @@ public class TutorServiceTest {
         LectureQuestionResponse response = tutorService.handleUserQuestion(question, courseId, loggedInUser);
         assertEquals(expectedAnswer, response.getAnswer());
     }
-
-    @Test
-    void testAnswerLectureQuestion_hasLinksInAnswer() {
-        String question = "Mock question";
-        UUID firstContentId = UUID.randomUUID();
-        UUID secondContentId = UUID.randomUUID();
-        List<SemanticSearchResult> dummyResults = List.of(
-            SemanticSearchResult.builder()
-                .score(0.95)
-                .typename("DocumentRecordSegment")
-                .mediaRecordSegment(
-                    DocumentRecordSegment.builder()
-                        .typename("DocumentRecordSegment")
-                        .page(2)
-                        .text("Dummy Text")
-                        .mediaRecord(
-                            MediaRecord.builder()
-                                .id(firstContentId)
-                                .contents(List.of(new Content(secondContentId)))
-                                .build())
-                        .build())
-                .build(),
-            SemanticSearchResult.builder()
-                .score(0.88)
-                .typename("DocumentRecordSegment")
-                .mediaRecordSegment(
-                    DocumentRecordSegment.builder()
-                        .page(3)
-                        .text("Dummy Text")
-                        .mediaRecord(
-                            MediaRecord.builder()
-                                .id(secondContentId)
-                                .contents(List.of(new Content(firstContentId)))
-                                .build())
-                        .build())
-                .build()
-        );
-
-        // Mock PreProcess to be a Lecture Question
-        when(ollamaService.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(),
-                Mockito.any())).thenReturn(new CategorizedQuestion(question, Category.LECTURE));
-        when(ollamaService.getTemplate(Mockito.any())).thenReturn("Mocked Prompt");
-        when(semanticSearchService.semanticSearch(Mockito.any(), Mockito.any(),
-                Mockito.any())).thenReturn(dummyResults);
-        when(ollamaService.startQuery(Mockito.eq(LectureQuestionResponse.class), Mockito.any(), Mockito.any(),
-                Mockito.any())).thenReturn(new LectureQuestionResponse("Mock Answer"));
-
-        String correctURLForFirst = "/courses/" + courseId + "/media/" + secondContentId
-                + "?selectedDocument=" + firstContentId + "&page=3";
-        String correctURLForSecond = "/courses/" + courseId + "/media/" + firstContentId
-                + "?selectedDocument=" + secondContentId + "&page=4";
-
-
-        LectureQuestionResponse response = tutorService.handleUserQuestion(question, courseId, loggedInUser);
-        assertThat(response.getLinks(), hasSize(2));
-        assertEquals(correctURLForFirst, response.getLinks().getFirst());
-        assertEquals(correctURLForSecond, response.getLinks().getLast());
-    }
-
 }
