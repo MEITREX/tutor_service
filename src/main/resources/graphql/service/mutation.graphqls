@@ -9,7 +9,7 @@ type Mutation {
     """
     Generates a Hint for a question asked in a quiz based on material in the corresponding course.
     """
-    generateHint(questionText: String!, courseId: UUID!): String!
+    generateHint(questionText: String!, courseId: UUID!): HintResponse!
 
 }
 

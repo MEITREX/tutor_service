@@ -1,5 +1,6 @@
 package de.unistuttgart.iste.meitrex.tutor_service.controller;
 
+import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.HintResponse;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.LectureQuestionResponse;
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
 import de.unistuttgart.iste.meitrex.tutor_service.service.HintService;
@@ -41,13 +42,13 @@ public class TutorController {
     }
 
     @MutationMapping
-    public String generateHint(
+    public HintResponse generateHint(
             @Argument final String questionText,
             @Argument final UUID courseId,
             @ContextValue final LoggedInUser currentUser
     ){
         if (questionText.isEmpty()){
-            return "No Hint can be generated without a question in the quiz.";
+            return new HintResponse("No Hint can be generated without a question in the quiz.");
         }
         return hintService.generateHintWithQuestion(questionText, courseId, currentUser);
     }
