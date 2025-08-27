@@ -3,7 +3,7 @@ plugins {
     id 'org.springframework.boot' version '3.+'
     id 'io.spring.dependency-management' version '1.+'
     id "io.github.kobylynskyi.graphql.codegen" version "5.+"
-    id "org.sonarqube" version "5.+"
+    id "org.sonarqube" version "6.+"
     id "jacoco"
 
 }
