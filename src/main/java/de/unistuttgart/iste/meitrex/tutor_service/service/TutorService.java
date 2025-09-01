@@ -25,9 +25,13 @@ public class TutorService {
     );
 
     /**
-     * Takes the user input and passes it thorugh the whole pipeline/llm before returning the answer
-     * @param userQuestion The question the user asked the AI Tutor
-     * @return The answer of the LLM or "Error message"
+     * Handles a user’s question by categorizing it and returning an appropriate response.
+     * Lecture questions are further processed, while other categories currently return default answers.
+     *
+     * @param userQuestion the question asked by the user
+     * @param courseId     the ID of the course, required for lecture-related questions
+     * @param currentUser  the currently logged-in user
+     * @return a response object containing the answer or a default message
      */
     public LectureQuestionResponse handleUserQuestion(String userQuestion, UUID courseId, LoggedInUser currentUser){
 
@@ -95,13 +99,6 @@ public class TutorService {
         LectureQuestionResponse response = ollamaService.startQuery(
                 LectureQuestionResponse.class, prompt, promptArgs, errorResponse);
 
-        segmentSearchResults.forEach(result -> {
-            if (result.getMediaRecordSegment() instanceof DocumentRecordSegment) {
-                System.out.println("Score for the one with id "
-                        + ((DocumentRecordSegment) result.getMediaRecordSegment()).getPage() + ": " + result.getScore());
-            }
-        });
-
         List<LectureQuestionResponse.Source> sources = segmentSearchResults.stream()
                 .map(this::generateSource)
                 .filter(Objects::nonNull)
@@ -119,7 +116,7 @@ public class TutorService {
      * @param userQuestion The question the user asked the AI Tutor
      * @return categorized question
      */
-    public CategorizedQuestion preprocessQuestion(final String userQuestion){
+    private CategorizedQuestion preprocessQuestion(final String userQuestion){
         CategorizedQuestion error = new CategorizedQuestion("", Category.ERROR);
         String templateName = PROMPT_TEMPLATES.get(0);
         List<TemplateArgs> preprocessArgs = List.of(TemplateArgs.builder()
