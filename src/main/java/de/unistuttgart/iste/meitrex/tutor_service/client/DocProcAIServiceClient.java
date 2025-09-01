@@ -17,6 +17,14 @@ public class DocProcAIServiceClient {
         this.graphQlClient = graphQlClient;
     }
 
+    /**
+     * Performs a semantic search for the given query text within the specified course content.
+     *
+     * @param queryText the user query to search for
+     * @param contentIdsOfCourse the list of content IDs belonging to the course
+     * @return a list of semantic search results with scores and segment details
+     * @throws RuntimeException if the GraphQL request fails or returns errors
+     */
     public List<SemanticSearchResult> semanticSearch(String queryText, List<UUID> contentIdsOfCourse) {
 
         final String semanticSearchQuery = """
@@ -27,8 +35,14 @@ public class DocProcAIServiceClient {
                       __typename
                       mediaRecordSegment {
                         id
+                        __typename
+                        mediaRecordId
                         ... on DocumentRecordSegment {
+                          page
                           text
+                        }
+                        ... on VideoRecordSegment {
+                            startTime
                         }
                       }
                     }
