@@ -1,5 +1,6 @@
 package de.unistuttgart.iste.meitrex.tutor_service.persistence.models;
 
+import de.unistuttgart.iste.meitrex.common.event.TutorCategory;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -8,9 +9,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CategorizedQuestion {
     private String question;
-    private Category category;
+    private TutorCategory category;
 
-    public CategorizedQuestion(String question, Category category) {
+    public CategorizedQuestion(String question, TutorCategory category) {
         this.question = question;
         this.category = category;
     }

@@ -1,6 +1,9 @@
 package de.unistuttgart.iste.meitrex.tutor_service.service;
 
+import de.unistuttgart.iste.meitrex.common.event.AskedTutorAQuestionEvent;
+import de.unistuttgart.iste.meitrex.common.event.TutorCategory;
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
+import de.unistuttgart.iste.meitrex.common.dapr.TopicPublisher;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,6 +18,7 @@ public class TutorService {
 
     private final OllamaService ollamaService;
     private final SemanticSearchService semanticSearchService;
+    private final TopicPublisher topicPublisher;
 
     private final String ERROR_MESSAGE = ("Oops, something went wrong! " +
             "The request could not be processed. Please try again.");
@@ -37,24 +41,32 @@ public class TutorService {
 
         CategorizedQuestion categorizedQuestion = preprocessQuestion(userQuestion);
 
-        Category category = categorizedQuestion.getCategory();
+        TutorCategory category = categorizedQuestion.getCategory();
+
+        //publish that the tutor was asked a question
+        topicPublisher.notifyTutorQuestionAsked(new AskedTutorAQuestionEvent(
+                currentUser.getId(),
+                courseId,
+                userQuestion,
+                category
+        ));
         
         //Return Answers for user-input that cannot be handled right now
-        if(category == Category.UNRECOGNIZABLE){
+        if(category == TutorCategory.UNRECOGNIZABLE){
             String unrecognizable = ("Unfortunately, I couldn't understand your question. " +
                     "Please rephrase it and ask again. Thank you :)");
             return new LectureQuestionResponse(unrecognizable);
         }
-        if(category == Category.OTHER){
+        if(category == TutorCategory.OTHER){
             String other = ("I'm currently unable to answer this type of message. " +
                     "However, I can still help you with questions about lecture materials or the MEITREX system :)");
             return new LectureQuestionResponse(other);
         }
         
         //Further process the question for the remaining categories 
-        if(category == Category.LECTURE){
+        if(category == TutorCategory.LECTURE){
             return answerLectureQuestion(userQuestion, courseId, currentUser);
-        } else if (category == Category.SYSTEM) {
+        } else if (category == TutorCategory.SYSTEM) {
             return new LectureQuestionResponse(
                     "At the moment, I can't answer any questions about the MEITREX system :(");
         }
@@ -117,7 +129,7 @@ public class TutorService {
      * @return categorized question
      */
     private CategorizedQuestion preprocessQuestion(final String userQuestion){
-        CategorizedQuestion error = new CategorizedQuestion("", Category.ERROR);
+        CategorizedQuestion error = new CategorizedQuestion("", TutorCategory.ERROR);
         String templateName = PROMPT_TEMPLATES.get(0);
         List<TemplateArgs> preprocessArgs = List.of(TemplateArgs.builder()
                 .argumentName("question")
