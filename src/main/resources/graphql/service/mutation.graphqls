@@ -5,6 +5,12 @@ type Mutation {
     The message gets preprocessed to be categorized after which a different answer service/logic will be used.
     """
     sendMessage(userInput: String!, courseId: UUID): LectureQuestionResponse!
+
+    """
+    Generates a Hint for a question asked in a quiz based on material in the corresponding course.
+    """
+    generateHint(questionText: String!, courseId: UUID!): HintResponse!
+
 }
 
 type LectureQuestionResponse {
@@ -24,4 +30,8 @@ type DocumentSource implements Source {
 type VideoSource implements Source {
     mediaRecordId: UUID!
     startTime: Float!
+}
+
+type HintResponse {
+    hint: String!
 }
