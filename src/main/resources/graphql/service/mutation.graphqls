@@ -9,7 +9,7 @@ type Mutation {
     """
     Generates a Hint for a question asked in a quiz based on material in the corresponding course.
     """
-    generateHint(questionText: String!, courseId: UUID!): HintResponse!
+    generateHint(questionInput: HintGenerationInput!, courseId: UUID!): HintResponse!
 
 }
 
@@ -34,4 +34,37 @@ type VideoSource implements Source {
 
 type HintResponse {
     hint: String!
+}
+
+enum HintQuestionType { # All available types to generate a hint for
+    MULTIPLE_CHOICE
+    ASSOCIATION
+    CLOZE
+}
+
+input HintGenerationInput {
+    type: HintQuestionType!
+    multipleChoice: HintMultipleChoiceInput
+    association: HintAssociationInput
+    cloze: HintClozeInput
+}
+
+input HintMultipleChoiceInput {
+    text: String!
+    answers: [String!]!
+}
+
+input HintClozeInput {
+    text: String! #The cloze text with blanks displayed as [1], [2], ...
+    blanks: [String!]!
+}
+
+input HintAssociationInput {
+    text: String!
+    pairs: [AssociationPairInput!]!
+}
+
+input AssociationPairInput {
+    left: String!
+    right: String!
 }
