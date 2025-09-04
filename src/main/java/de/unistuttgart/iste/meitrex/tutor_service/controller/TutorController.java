@@ -44,11 +44,11 @@ public class TutorController {
 
     @MutationMapping
     public HintResponse generateHint(
-            @Argument final HintGenerationInput input,
+            @Argument final HintGenerationInput questionInput,
             @Argument final UUID courseId,
             @ContextValue final LoggedInUser currentUser
     ){
-        return hintService.generateHintWithQuestion(input, courseId, currentUser);
+        return hintService.generateHintWithQuestion(questionInput, courseId, currentUser);
     }
 
 }

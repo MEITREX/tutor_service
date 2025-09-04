@@ -28,10 +28,11 @@ public class HintService {
     ) {
         HintGenerationData generationData = getGenerationData(input);
         String promptName = PROMPT_TEMPLATES.get("QUESTION").replace("{QUESTION_TYPE}", input.getType().toString());
+        String questionPrompt = ollamaService.getTemplate(promptName);
         List<TemplateArgs> questionPromptArgs = List.of(
                 TemplateArgs.builder().argumentName("questionText").argumentValue(generationData.getQuestionText()).build(),
                 TemplateArgs.builder().argumentName("options").argumentValue(generationData.getOptionsText()).build());
-        String questionPrompt = ollamaService.fillTemplate(promptName, questionPromptArgs);
+        questionPrompt = ollamaService.fillTemplate(questionPrompt, questionPromptArgs);
 
         List<SemanticSearchResult> searchResults =
                 semanticSearchService.semanticSearch(generationData.getSemanticSearchQuery(), courseId, currentUser);
@@ -63,8 +64,8 @@ public class HintService {
     private HintGenerationData getGenerationData(HintGenerationInput input) {
         return switch (input.getType()) {
             case CLOZE -> buildClozeData(input.getCloze());
-            case MULTIPLE_CHOICE -> buildAssociationData(input.getAssociation());
-            case ASSOCIATION -> buildMultipleChoiceData(input.getMultipleChoice());
+            case ASSOCIATION -> buildAssociationData(input.getAssociation());
+            case MULTIPLE_CHOICE -> buildMultipleChoiceData(input.getMultipleChoice());
             default -> throw new IllegalArgumentException("Unsupported hint question type: " + input.getType());
         };
     }

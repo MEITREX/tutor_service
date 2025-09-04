@@ -2,12 +2,12 @@ package de.unistuttgart.iste.meitrex.tutor_service.persistence.models;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Getter;
+import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
 
-@Getter
+@Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
@@ -18,7 +18,7 @@ public class HintGenerationInput {
     private HintAssociationInput association;
     private HintClozeInput cloze;
 
-    @Getter
+    @Data
     @Builder
     @AllArgsConstructor
     @NoArgsConstructor
@@ -27,7 +27,7 @@ public class HintGenerationInput {
         private List<String> answers;
     }
 
-    @Getter
+    @Data
     @Builder
     @AllArgsConstructor
     @NoArgsConstructor
@@ -36,7 +36,7 @@ public class HintGenerationInput {
         private List<String> blanks;
     }
 
-    @Getter
+    @Data
     @Builder
     @AllArgsConstructor
     @NoArgsConstructor
@@ -45,7 +45,7 @@ public class HintGenerationInput {
         private List<AssociationPairInput> pairs;
     }
 
-    @Getter
+    @Data
     @Builder
     @AllArgsConstructor
     @NoArgsConstructor

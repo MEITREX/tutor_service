@@ -73,7 +73,7 @@ public class OllamaService {
         for (TemplateArgs arg : args) {
             String placeholder = "{{" + arg.getArgumentName() + "}}";
             if(!promptTemplate.contains(placeholder)){
-                throw new IllegalArgumentException("No such argument in this prompt");
+                throw new IllegalArgumentException("No such argument in this prompt: " + placeholder);
             }
             filledTemplate = filledTemplate.replace(placeholder, arg.getArgumentValue());
         }
