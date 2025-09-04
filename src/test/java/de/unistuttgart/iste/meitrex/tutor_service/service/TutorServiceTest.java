@@ -90,7 +90,7 @@ public class TutorServiceTest {
         when(ollamaService.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(categorizedQuestion);
         when(ollamaService.getTemplate(Mockito.any())).thenReturn("Mocked Prompt");
         when(semanticSearchService.semanticSearch(Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(dummyResults);
-        when(semanticSearchService.formatDocumentSegmentsForPrompt(Mockito.any())).thenReturn("Mocked content");
+        when(semanticSearchService.formatIntoNumberedListForPrompt(Mockito.any())).thenReturn("Mocked content");
         when(ollamaService.startQuery(Mockito.eq(LectureQuestionResponse.class), Mockito.any(), Mockito.any(),
                 Mockito.any())).thenReturn(new LectureQuestionResponse(expectedAnswer));
 

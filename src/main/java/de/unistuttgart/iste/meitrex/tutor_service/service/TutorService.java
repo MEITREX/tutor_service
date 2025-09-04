@@ -102,7 +102,8 @@ public class TutorService {
 
         LectureQuestionResponse errorResponse = new LectureQuestionResponse(ERROR_MESSAGE);
         String prompt = ollamaService.getTemplate(PROMPT_TEMPLATES.get(1));
-        String contentString = semanticSearchService.formatDocumentSegmentsForPrompt(documentSegments);
+        String contentString = semanticSearchService.formatIntoNumberedListForPrompt(
+                documentSegments.stream().map(DocumentRecordSegment::getText).toList());
         List<TemplateArgs> promptArgs = List.of(
             TemplateArgs.builder().argumentName("question").argumentValue(question).build(),
             TemplateArgs.builder().argumentName("content").argumentValue(contentString).build()
