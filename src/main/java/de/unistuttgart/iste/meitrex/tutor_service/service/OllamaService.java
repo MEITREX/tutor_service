@@ -55,7 +55,20 @@ public class OllamaService {
         }
     }
 
-    private String fillTemplate(String promptTemplate, List<TemplateArgs> args) {
+    /**
+     * Replaces placeholders in a given prompt template with the corresponding argument values.
+     * <p>
+     * Each placeholder must be wrapped in double curly braces, e.g., <code>{{argumentName}}</code>.
+     * For every {@link TemplateArgs} provided, the method searches for its placeholder in the template
+     * and replaces it with the associated argument value.
+     * </p>
+     *
+     * @param promptTemplate the template string containing placeholders in the form <code>{{argumentName}}</code>
+     * @param args a list of {@link TemplateArgs} objects providing argument names and their values
+     * @return the template string with all placeholders replaced by their corresponding values
+     * @throws IllegalArgumentException if the template does not contain a placeholder for any provided argument
+     */
+    public String fillTemplate(String promptTemplate, List<TemplateArgs> args) {
         String filledTemplate = promptTemplate;
         for (TemplateArgs arg : args) {
             String placeholder = "{{" + arg.getArgumentName() + "}}";
