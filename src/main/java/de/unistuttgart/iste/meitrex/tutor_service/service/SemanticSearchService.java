@@ -4,7 +4,6 @@ import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
 import de.unistuttgart.iste.meitrex.content_service.client.ContentServiceClient;
 import de.unistuttgart.iste.meitrex.content_service.exception.ContentServiceConnectionException;
 import de.unistuttgart.iste.meitrex.tutor_service.client.DocProcAIServiceClient;
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.DocumentRecordSegment;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.SemanticSearchResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
