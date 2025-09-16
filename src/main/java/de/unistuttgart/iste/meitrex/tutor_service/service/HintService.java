@@ -3,17 +3,23 @@ package de.unistuttgart.iste.meitrex.tutor_service.service;
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class HintService {
     private final OllamaService ollamaService;
     private final SemanticSearchService semanticSearchService;
+
+    @Value("${semantic.search.threshold.hint:0.4}")
+    private double scoreThreshold;
 
     private static final Map<String, String> PROMPT_TEMPLATES = Map.of(
             "GENERATION", "generate_hint.md",
@@ -41,6 +47,7 @@ public class HintService {
         }
 
         List<DocumentRecordSegment> documentSegments = searchResults.stream()
+                .filter(result -> result.getScore() <= scoreThreshold)
                 .map(SemanticSearchResult::getMediaRecordSegment)
                 .filter(segment -> segment instanceof DocumentRecordSegment)
                 .map(segment -> (DocumentRecordSegment) segment)

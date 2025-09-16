@@ -6,6 +6,7 @@ import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
 import de.unistuttgart.iste.meitrex.common.dapr.TopicPublisher;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,6 +20,8 @@ public class TutorService {
     private final OllamaService ollamaService;
     private final SemanticSearchService semanticSearchService;
     private final TopicPublisher topicPublisher;
+    @Value("${semantic.search.threshold.tutor:0.4}")
+    private double scoreThreshold;
 
     private final String ERROR_MESSAGE = ("Oops, something went wrong! " +
             "The request could not be processed. Please try again.");
@@ -91,6 +94,7 @@ public class TutorService {
         }
 
         List<DocumentRecordSegment> documentSegments = segmentSearchResults.stream()
+                .filter(result -> result.getScore() <= scoreThreshold)
                 .map(SemanticSearchResult::getMediaRecordSegment)
                 .filter(segment -> segment instanceof DocumentRecordSegment)
                 .map(segment -> (DocumentRecordSegment) segment)
