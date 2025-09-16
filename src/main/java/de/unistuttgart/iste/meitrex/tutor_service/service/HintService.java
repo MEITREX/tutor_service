@@ -23,7 +23,9 @@ public class HintService {
 
     private static final Map<String, String> PROMPT_TEMPLATES = Map.of(
             "GENERATION", "generate_hint.md",
-            "QUESTION", "question_prompt_{QUESTION_TYPE}.md"
+            "QUESTION", "question_prompt_{QUESTION_TYPE}.md",
+            "SEMANTIC_SEARCH_QUERY_ASSOCIATION", "generate_semantic_search_query_association.md",
+            "SEMANTIC_SEARCH_QUERY_CLOZE", "generate_semantic_search_query_cloze.md"
     );
 
 
@@ -101,10 +103,16 @@ public class HintService {
                     "Left: " + pair.getLeft() + " <-> Right: " + pair.getRight()))
                     .toList());
 
+        List<TemplateArgs> promptArgs = List.of(
+            TemplateArgs.builder().argumentName("pairs").argumentValue(optionsString).build()
+        );
+        String promptName = ollamaService.getTemplate(PROMPT_TEMPLATES.get("SEMANTIC_SEARCH_QUERY_ASSOCIATION"));
+        String semanticSearchQuery = ollamaService.startQuery(String.class, promptName, promptArgs , questionText);
+
         return HintGenerationData.builder()
                 .questionText(questionText)
                 .optionsText(optionsString)
-                .semanticSearchQuery(questionText)
+                .semanticSearchQuery(semanticSearchQuery)
                 .build();
     }
 
@@ -115,21 +123,20 @@ public class HintService {
         String questionText = input.getText();
         List<String> blanks = input.getBlanks();
         String optionsString = semanticSearchService.formatIntoNumberedListForPrompt(blanks);
-        String semanticSearchQuery = fillClozeText(questionText, blanks);
 
-        return HintGenerationData.builder()
-                .questionText(questionText)
-                .optionsText(optionsString)
-                .semanticSearchQuery(semanticSearchQuery)
-                .build();
-    }
+        List<TemplateArgs> promptArgs = List.of(
+            TemplateArgs.builder().argumentName("clozeText").argumentValue(questionText).build(),
+            TemplateArgs.builder().argumentName("answers").argumentValue(optionsString).build()
+        );
+        String promptName = ollamaService.getTemplate(PROMPT_TEMPLATES.get("SEMANTIC_SEARCH_QUERY_CLOZE"));
+        String semanticSearchQuery = ollamaService.startQuery(String.class, promptName, promptArgs , questionText);
 
-    private String fillClozeText(String text, List<String> blanks) {
-        String result = text;
-        for (int i = 0; i < blanks.size(); i++) {
-            result = result.replace("[" + (i + 1) + "]", blanks.get(i));
-        }
-        return result;
+        return HintGenerationData
+            .builder()
+            .questionText(questionText)
+            .optionsText(optionsString)
+            .semanticSearchQuery(semanticSearchQuery)
+            .build();
     }
 
 }
