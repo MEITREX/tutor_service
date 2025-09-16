@@ -11,7 +11,8 @@ Your task is to create a single, high-quality search query by synthesizing the c
 3. Generate a single, concise, and conceptually-rich search query in natural language. This query should represent the combined meaning of all the pairs. 
 4. Do not explain your reasoning.
 5. Do not include any introductory text like "Here is the search query:".
-6. Output only the search query string.
+6. Output the search query in a JSON with exactly one key-value pair, with the key "query" like this:
+{"query": "your generated query here"}
 
 **Input Pairs:**
 {{pairs}}

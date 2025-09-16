@@ -34,6 +34,7 @@ public class HintService {
             UUID courseId,
             final LoggedInUser currentUser
     ) {
+        // First fill the prompt corresponding to the question type
         HintGenerationData generationData = getGenerationData(input);
         String promptName = PROMPT_TEMPLATES.get("QUESTION").replace("{QUESTION_TYPE}", input.getType().toString());
         String questionPrompt = ollamaService.getTemplate(promptName);
@@ -42,6 +43,10 @@ public class HintService {
                 TemplateArgs.builder().argumentName("options").argumentValue(generationData.getOptionsText()).build());
         questionPrompt = ollamaService.fillTemplate(questionPrompt, questionPromptArgs);
 
+        /*
+        * Perform a semantic search using the query defined in HintGenerationData
+        * Query is either generated or the provided question text based on the question type
+        */
         List<SemanticSearchResult> searchResults =
                 semanticSearchService.semanticSearch(generationData.getSemanticSearchQuery(), courseId, currentUser);
         if (searchResults.isEmpty()) {
@@ -56,9 +61,13 @@ public class HintService {
                 .toList();
 
         if (documentSegments.isEmpty()) {
-            return new HintResponse("No relevant content found in the lecture for this question");
+            return new HintResponse("No relevant content found in the documents of this lecture for this question");
         }
 
+        /*
+        *  Now generate the hint given the question, answer options (which is injected via the questionPrompt) and
+        * the text inside segments which have been found relevant via the semantic search
+        */
         String prompt = ollamaService.getTemplate(PROMPT_TEMPLATES.get("GENERATION"));
         String contentString = semanticSearchService.formatIntoNumberedListForPrompt(
                 documentSegments.stream().map(DocumentRecordSegment::getText).toList());
@@ -103,16 +112,18 @@ public class HintService {
                     "Left: " + pair.getLeft() + " <-> Right: " + pair.getRight()))
                     .toList());
 
+        // Generate a semantic search query based on the question text and the pairs
         List<TemplateArgs> promptArgs = List.of(
             TemplateArgs.builder().argumentName("pairs").argumentValue(optionsString).build()
         );
         String promptName = ollamaService.getTemplate(PROMPT_TEMPLATES.get("SEMANTIC_SEARCH_QUERY_ASSOCIATION"));
-        String semanticSearchQuery = ollamaService.startQuery(String.class, promptName, promptArgs , questionText);
+        SemanticSearchQuery semanticSearchQuery = ollamaService.startQuery(
+                SemanticSearchQuery.class, promptName, promptArgs , new SemanticSearchQuery(questionText));
 
         return HintGenerationData.builder()
                 .questionText(questionText)
                 .optionsText(optionsString)
-                .semanticSearchQuery(semanticSearchQuery)
+                .semanticSearchQuery(semanticSearchQuery.getQuery())
                 .build();
     }
 
@@ -124,18 +135,20 @@ public class HintService {
         List<String> blanks = input.getBlanks();
         String optionsString = semanticSearchService.formatIntoNumberedListForPrompt(blanks);
 
+        // Generate a semantic search query based on the cloze and its corresponding answer options
         List<TemplateArgs> promptArgs = List.of(
             TemplateArgs.builder().argumentName("clozeText").argumentValue(questionText).build(),
             TemplateArgs.builder().argumentName("answers").argumentValue(optionsString).build()
         );
         String promptName = ollamaService.getTemplate(PROMPT_TEMPLATES.get("SEMANTIC_SEARCH_QUERY_CLOZE"));
-        String semanticSearchQuery = ollamaService.startQuery(String.class, promptName, promptArgs , questionText);
+        SemanticSearchQuery semanticSearchQuery = ollamaService.startQuery(
+                SemanticSearchQuery.class, promptName, promptArgs , new SemanticSearchQuery(questionText));
 
         return HintGenerationData
             .builder()
             .questionText(questionText)
             .optionsText(optionsString)
-            .semanticSearchQuery(semanticSearchQuery)
+            .semanticSearchQuery(semanticSearchQuery.getQuery())
             .build();
     }
 
