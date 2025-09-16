@@ -6,8 +6,10 @@ import de.unistuttgart.iste.meitrex.common.event.TutorCategory;
 import de.unistuttgart.iste.meitrex.common.testutil.InjectCurrentUserHeader;
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.*;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.UUID;
@@ -21,8 +23,13 @@ public class TutorServiceTest {
     private final OllamaService ollamaService = Mockito.mock(OllamaService.class);
     private final SemanticSearchService semanticSearchService = Mockito.mock(SemanticSearchService.class);
     private final TopicPublisher topicPublisher = Mockito.mock(TopicPublisher.class);
-    private final TutorService tutorService = new TutorService(ollamaService, semanticSearchService, topicPublisher);
+    private TutorService tutorService;
 
+    @BeforeEach
+    void setUp() {
+        tutorService = new TutorService(ollamaService, semanticSearchService, topicPublisher);
+        ReflectionTestUtils.setField(tutorService, "scoreThreshold", 0.4);
+    }
     private final UUID courseId = UUID.randomUUID();
 
     @InjectCurrentUserHeader
@@ -74,12 +81,12 @@ public class TutorServiceTest {
         CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question,TutorCategory.LECTURE);
         List<SemanticSearchResult> dummyResults = List.of(
                 SemanticSearchResult.builder()
-                        .score(0.95)
+                        .score(0.15)
                         .typename("DocumentRecordSegment")
                         .mediaRecordSegment(DocumentRecordSegment.builder().page(2).text("Dummy content").build())
                         .build(),
                 SemanticSearchResult.builder()
-                        .score(0.88)
+                        .score(0.28)
                         .typename("DocumentRecordSegment")
                         .mediaRecordSegment(DocumentRecordSegment.builder().page(3).text("Dummy content").build())
                         .build()
@@ -133,12 +140,12 @@ public class TutorServiceTest {
         String expectedAnswer = "No answer was found in the documents of the lecture.";
         List<SemanticSearchResult> dummyResults = List.of(
                 SemanticSearchResult.builder()
-                        .score(0.95)
+                        .score(0.15)
                         .typename("VideoRecordSegment")
                         .mediaRecordSegment(VideoRecordSegment.builder().startTime(2).build())
                         .build(),
                 SemanticSearchResult.builder()
-                        .score(0.88)
+                        .score(0.28)
                         .typename("VideoRecordSegment")
                         .mediaRecordSegment(VideoRecordSegment.builder().startTime(3).build())
                         .build()
