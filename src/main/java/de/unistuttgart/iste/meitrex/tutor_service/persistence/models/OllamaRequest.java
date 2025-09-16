@@ -12,11 +12,14 @@ public class OllamaRequest {
     final String prompt;
     @JsonProperty("stream")
     final boolean stream;
+    @JsonProperty("format")
+    final String format;
 
     public OllamaRequest(String model, String prompt, boolean stream) {
         this.model = model;
         this.prompt = prompt;
         this.stream = stream;
+        this.format = "json";
     }
 
     public OllamaRequest(String model, String prompt) {
