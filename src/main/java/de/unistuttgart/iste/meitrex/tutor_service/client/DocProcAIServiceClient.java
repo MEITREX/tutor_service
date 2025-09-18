@@ -1,6 +1,6 @@
 package de.unistuttgart.iste.meitrex.tutor_service.client;
 
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.SemanticSearchResult;
+import de.unistuttgart.iste.meitrex.tutor_service.service.models.SemanticSearchResult;
 import org.springframework.graphql.client.ClientGraphQlResponse;
 import org.springframework.graphql.client.GraphQlClient;
 import reactor.core.publisher.SynchronousSink;

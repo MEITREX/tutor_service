@@ -5,7 +5,11 @@ import de.unistuttgart.iste.meitrex.common.dapr.TopicPublisher;
 import de.unistuttgart.iste.meitrex.common.event.TutorCategory;
 import de.unistuttgart.iste.meitrex.common.testutil.InjectCurrentUserHeader;
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.*;
+import de.unistuttgart.iste.meitrex.generated.dto.LectureQuestionResponse;
+import de.unistuttgart.iste.meitrex.tutor_service.service.models.CategorizedQuestion;
+import de.unistuttgart.iste.meitrex.tutor_service.service.models.DocumentRecordSegment;
+import de.unistuttgart.iste.meitrex.tutor_service.service.models.SemanticSearchResult;
+import de.unistuttgart.iste.meitrex.tutor_service.service.models.VideoRecordSegment;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -99,7 +103,7 @@ public class TutorServiceTest {
         when(semanticSearchService.semanticSearch(Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(dummyResults);
         when(semanticSearchService.formatIntoNumberedListForPrompt(Mockito.any())).thenReturn("Mocked content");
         when(ollamaService.startQuery(Mockito.eq(LectureQuestionResponse.class), Mockito.any(), Mockito.any(),
-                Mockito.any())).thenReturn(new LectureQuestionResponse(expectedAnswer));
+                Mockito.any())).thenReturn(new LectureQuestionResponse(expectedAnswer, List.of()));
 
 
         LectureQuestionResponse response = tutorService.handleUserQuestion(question, courseId, loggedInUser);

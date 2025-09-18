@@ -1,4 +1,4 @@
-package de.unistuttgart.iste.meitrex.tutor_service.persistence.models;
+package de.unistuttgart.iste.meitrex.tutor_service.service.models;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;

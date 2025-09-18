@@ -1,7 +1,8 @@
 package de.unistuttgart.iste.meitrex.tutor_service.service;
 
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.*;
+import de.unistuttgart.iste.meitrex.generated.dto.*;
+import de.unistuttgart.iste.meitrex.tutor_service.service.models.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -88,7 +89,7 @@ public class HintService {
         };
     }
 
-    private HintGenerationData buildMultipleChoiceData(HintGenerationInput.HintMultipleChoiceInput input) {
+    private HintGenerationData buildMultipleChoiceData(HintMultipleChoiceInput input) {
         if (input == null || input.getText().isBlank() || input.getAnswers().isEmpty()) {
             throw new IllegalArgumentException("Multiple choice input is invalid or empty");
         }
@@ -102,7 +103,7 @@ public class HintService {
                 .build();
     }
 
-    private HintGenerationData buildAssociationData(HintGenerationInput.HintAssociationInput input) {
+    private HintGenerationData buildAssociationData(HintAssociationInput input) {
         if (input == null || input.getText().isBlank() || input.getPairs().isEmpty()) {
             throw new IllegalArgumentException("Multiple choice input is invalid or empty");
         }
@@ -127,7 +128,7 @@ public class HintService {
                 .build();
     }
 
-    private HintGenerationData buildClozeData(HintGenerationInput.HintClozeInput input) {
+    private HintGenerationData buildClozeData(HintClozeInput input) {
         if (input == null || input.getText().isBlank() || input.getBlanks().isEmpty()) {
             throw new IllegalArgumentException("Cloze input is invalid or empty");
         }

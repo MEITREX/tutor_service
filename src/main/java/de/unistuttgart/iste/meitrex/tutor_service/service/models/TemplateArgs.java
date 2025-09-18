@@ -1,4 +1,4 @@
-package de.unistuttgart.iste.meitrex.tutor_service.persistence.models;
+package de.unistuttgart.iste.meitrex.tutor_service.service.models;
 
 import lombok.Builder;
 import lombok.Getter;

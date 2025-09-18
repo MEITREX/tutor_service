@@ -4,7 +4,11 @@ import de.unistuttgart.iste.meitrex.common.event.AskedTutorAQuestionEvent;
 import de.unistuttgart.iste.meitrex.common.event.TutorCategory;
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
 import de.unistuttgart.iste.meitrex.common.dapr.TopicPublisher;
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.*;
+import de.unistuttgart.iste.meitrex.generated.dto.DocumentSource;
+import de.unistuttgart.iste.meitrex.generated.dto.LectureQuestionResponse;
+import de.unistuttgart.iste.meitrex.generated.dto.Source;
+import de.unistuttgart.iste.meitrex.generated.dto.VideoSource;
+import de.unistuttgart.iste.meitrex.tutor_service.service.models.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -58,12 +62,12 @@ public class TutorService {
         if(category == TutorCategory.UNRECOGNIZABLE){
             String unrecognizable = ("Unfortunately, I couldn't understand your question. " +
                     "Please rephrase it and ask again. Thank you :)");
-            return new LectureQuestionResponse(unrecognizable);
+            return new LectureQuestionResponse(unrecognizable, List.of());
         }
         if(category == TutorCategory.OTHER){
             String other = ("I'm currently unable to answer this type of message. " +
                     "However, I can still help you with questions about lecture materials or the MEITREX system :)");
-            return new LectureQuestionResponse(other);
+            return new LectureQuestionResponse(other, List.of());
         }
         
         //Further process the question for the remaining categories 
@@ -71,9 +75,9 @@ public class TutorService {
             return answerLectureQuestion(userQuestion, courseId, currentUser);
         } else if (category == TutorCategory.SYSTEM) {
             return new LectureQuestionResponse(
-                    "At the moment, I can't answer any questions about the MEITREX system :(");
+                    "At the moment, I can't answer any questions about the MEITREX system :(", List.of());
         }
-        return new LectureQuestionResponse(ERROR_MESSAGE);
+        return new LectureQuestionResponse(ERROR_MESSAGE, List.of());
     }
 
     private LectureQuestionResponse answerLectureQuestion(String question, UUID courseId, LoggedInUser currentUser){
@@ -81,7 +85,7 @@ public class TutorService {
             String response =
                 "Something went wrong! If your question is about lecture materials, " +
                         "please navigate to the course it relates to. Thank you! :)";
-            return new LectureQuestionResponse(response);
+            return new LectureQuestionResponse(response, List.of());
         }
         List<SemanticSearchResult> searchResults = semanticSearchService.semanticSearch(question, courseId, currentUser);
 
@@ -90,7 +94,7 @@ public class TutorService {
                 .toList();
 
         if(segmentSearchResults.isEmpty()){
-            return new LectureQuestionResponse("No answer was found in the lecture.");
+            return new LectureQuestionResponse("No answer was found in the lecture.", List.of());
         }
 
         List<DocumentRecordSegment> documentSegments = segmentSearchResults.stream()
@@ -101,10 +105,10 @@ public class TutorService {
                 .toList();
 
         if(documentSegments.isEmpty()){
-            return new LectureQuestionResponse("No answer was found in the documents of the lecture.");
+            return new LectureQuestionResponse("No answer was found in the documents of the lecture.", List.of());
         }
 
-        LectureQuestionResponse errorResponse = new LectureQuestionResponse(ERROR_MESSAGE);
+        LectureQuestionResponse errorResponse = new LectureQuestionResponse(ERROR_MESSAGE, List.of());
         String prompt = ollamaService.getTemplate(PROMPT_TEMPLATES.get(1));
         String contentString = semanticSearchService.formatIntoNumberedListForPrompt(
                 documentSegments.stream().map(DocumentRecordSegment::getText).toList());
@@ -116,7 +120,7 @@ public class TutorService {
         LectureQuestionResponse response = ollamaService.startQuery(
                 LectureQuestionResponse.class, prompt, promptArgs, errorResponse);
 
-        List<LectureQuestionResponse.Source> sources = segmentSearchResults.stream()
+        List<Source> sources = segmentSearchResults.stream()
                 .map(this::generateSource)
                 .filter(Objects::nonNull)
                 .toList();
@@ -144,16 +148,16 @@ public class TutorService {
         return ollamaService.startQuery(CategorizedQuestion.class, prompt, preprocessArgs, error);
     }
 
-    private LectureQuestionResponse.Source generateSource(SemanticSearchResult result){
+    private Source generateSource(SemanticSearchResult result){
         MediaRecordSegment segment = result.getMediaRecordSegment();
 
         if (segment instanceof DocumentRecordSegment docSegment) {
-            LectureQuestionResponse.DocumentSource docSource = new LectureQuestionResponse.DocumentSource();
+            DocumentSource docSource = new DocumentSource();
             docSource.setMediaRecordId(docSegment.getMediaRecordId());
             docSource.setPage(docSegment.getPage());
             return docSource;
         } else if (segment instanceof VideoRecordSegment videoSegment) {
-            LectureQuestionResponse.VideoSource videoSource = new LectureQuestionResponse.VideoSource();
+            VideoSource videoSource = new VideoSource();
             videoSource.setMediaRecordId(videoSegment.getMediaRecordId());
             videoSource.setStartTime(videoSegment.getStartTime());
             return videoSource;

@@ -2,9 +2,9 @@ package de.unistuttgart.iste.meitrex.tutor_service.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.unistuttgart.iste.meitrex.tutor_service.config.OllamaConfig;
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.OllamaRequest;
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.OllamaResponse;
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.TemplateArgs;
+import de.unistuttgart.iste.meitrex.tutor_service.service.models.OllamaRequest;
+import de.unistuttgart.iste.meitrex.tutor_service.service.models.OllamaResponse;
+import de.unistuttgart.iste.meitrex.tutor_service.service.models.TemplateArgs;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
