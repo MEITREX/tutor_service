@@ -1,5 +1,6 @@
 package de.unistuttgart.iste.meitrex.tutor_service.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.unistuttgart.iste.meitrex.tutor_service.config.OllamaConfig;
 import de.unistuttgart.iste.meitrex.tutor_service.service.models.OllamaRequest;
@@ -7,6 +8,7 @@ import de.unistuttgart.iste.meitrex.tutor_service.service.models.OllamaResponse;
 import de.unistuttgart.iste.meitrex.tutor_service.service.models.TemplateArgs;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
@@ -15,7 +17,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Slf4j
@@ -27,6 +31,8 @@ public class OllamaService {
 
     private final ObjectMapper jsonMapper = new ObjectMapper();
     private final HttpClient client = HttpClient.newHttpClient();
+    @Autowired
+    private JsonSchemaService jsonSchemaService;
 
     /**
      * Loads a prompt template from the prompt_templates resource folder and returns its content as a string.
@@ -41,6 +47,7 @@ public class OllamaService {
             if (inputStream == null) {
                 throw new FileNotFoundException("Template file not found: " + templateFileName);
             }
+            log.info("Reading template: {}", templateFileName);
             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
             StringBuilder template = new StringBuilder();
             String line;
@@ -95,7 +102,12 @@ public class OllamaService {
         try {
             String filledPrompt = fillTemplate(prompt, templateArgs);
 
-            OllamaRequest request = new OllamaRequest(this.config.getModel(), filledPrompt);
+            TypeReference<HashMap<String,Object>> typeRef = new TypeReference<>() {};
+            Map<String, Object> schemaObject = jsonMapper.readValue(
+                    jsonSchemaService.getJsonSchema(responseType), typeRef);
+
+            OllamaRequest request = new OllamaRequest(
+                    this.config.getModel(), filledPrompt, false, schemaObject);
             OllamaResponse response = queryLLM(request);
             Optional<ResponseType> parsedResponse =
                     parseResponse(response, responseType);
@@ -150,11 +162,13 @@ public class OllamaService {
     public <ResponseType> Optional<ResponseType> parseResponse(OllamaResponse ollamaResponse, Class<ResponseType> responseType) {
         final String response = ollamaResponse.getResponse();
         if(responseType == null || response == null) {
+            log.info("Response is null or empty: {}", response);
             return Optional.empty();
         }
         try {
             return Optional.of(jsonMapper.readValue(response, responseType));
         } catch (IOException e) {
+            log.error("Failed to parse response: {}", response, e);
             return Optional.empty();
         }
     }

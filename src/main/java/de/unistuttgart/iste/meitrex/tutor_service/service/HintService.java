@@ -121,6 +121,8 @@ public class HintService {
         SemanticSearchQuery semanticSearchQuery = ollamaService.startQuery(
                 SemanticSearchQuery.class, promptName, promptArgs , new SemanticSearchQuery(questionText));
 
+        log.info("Generated search query {}", semanticSearchQuery.getQuery());
+
         return HintGenerationData.builder()
                 .questionText(questionText)
                 .optionsText(optionsString)
@@ -144,6 +146,8 @@ public class HintService {
         String promptName = ollamaService.getTemplate(PROMPT_TEMPLATES.get("SEMANTIC_SEARCH_QUERY_CLOZE"));
         SemanticSearchQuery semanticSearchQuery = ollamaService.startQuery(
                 SemanticSearchQuery.class, promptName, promptArgs , new SemanticSearchQuery(questionText));
+
+        log.info("Generated search query {}", semanticSearchQuery.getQuery());
 
         return HintGenerationData
             .builder()
