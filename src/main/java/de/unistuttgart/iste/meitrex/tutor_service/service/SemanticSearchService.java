@@ -4,8 +4,7 @@ import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
 import de.unistuttgart.iste.meitrex.content_service.client.ContentServiceClient;
 import de.unistuttgart.iste.meitrex.content_service.exception.ContentServiceConnectionException;
 import de.unistuttgart.iste.meitrex.tutor_service.client.DocProcAIServiceClient;
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.DocumentRecordSegment;
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.SemanticSearchResult;
+import de.unistuttgart.iste.meitrex.tutor_service.service.models.SemanticSearchResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -46,16 +45,15 @@ public class SemanticSearchService {
     }
 
     /**
-     * Formats a list of document segments into a numbered string for use in prompts.
+     * Formats a list of Strings into a numbered string for use in prompts.
      *
-     * @param documentSegments the list of document segments to format
+     * @param texts the list of Strings to format into a numbered list
      * @return a formatted string with each segment numbered, or an empty string if no valid text is present
      */
-    public String formatDocumentSegmentsForPrompt(List<DocumentRecordSegment> documentSegments) {
+    public String formatIntoNumberedListForPrompt(List<String> texts) {
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < documentSegments.size(); i++) {
-            DocumentRecordSegment segment = documentSegments.get(i);
-            String text = segment.getText();
+        for (int i = 0; i < texts.size(); i++) {
+            String text = texts.get(i);
             if (text == null || text.isBlank()) continue;
 
             sb.append("[").append(i + 1).append("] ")

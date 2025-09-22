@@ -1,4 +1,4 @@
-package de.unistuttgart.iste.meitrex.tutor_service.persistence.models;
+package de.unistuttgart.iste.meitrex.tutor_service.service.models;
 
 import de.unistuttgart.iste.meitrex.common.event.TutorCategory;
 import lombok.AccessLevel;

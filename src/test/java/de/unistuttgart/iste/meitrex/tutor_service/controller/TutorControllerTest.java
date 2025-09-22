@@ -1,8 +1,8 @@
 package de.unistuttgart.iste.meitrex.tutor_service.controller;
 
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.LectureQuestionResponse;
 import de.unistuttgart.iste.meitrex.common.testutil.InjectCurrentUserHeader;
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
+import de.unistuttgart.iste.meitrex.generated.dto.LectureQuestionResponse;
 import de.unistuttgart.iste.meitrex.tutor_service.service.TutorService;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -10,6 +10,7 @@ import org.mockito.Mock;
 import org.junit.jupiter.api.Test;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.UUID;
 
 import static de.unistuttgart.iste.meitrex.common.testutil.TestUsers.userWithMembershipInCourseWithId;
@@ -40,7 +41,8 @@ public class TutorControllerTest {
     @Test
     void testSendMessage_withValidInput() {
         String question = "How do i upload my assignments?";
-        LectureQuestionResponse expectedResponse = new LectureQuestionResponse("Response for the question");
+        LectureQuestionResponse expectedResponse = new LectureQuestionResponse(
+                "Response for the question", List.of());
         when(tutorService.handleUserQuestion(question, courseId, loggedInUser)).thenReturn(expectedResponse);
 
         LectureQuestionResponse answer = tutorController.sendMessage(question, courseId, loggedInUser);

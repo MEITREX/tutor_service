@@ -1,8 +1,9 @@
 package de.unistuttgart.iste.meitrex.tutor_service.controller;
 
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.HintResponse;
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.models.LectureQuestionResponse;
+import de.unistuttgart.iste.meitrex.generated.dto.HintGenerationInput;
+import de.unistuttgart.iste.meitrex.generated.dto.HintResponse;
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
+import de.unistuttgart.iste.meitrex.generated.dto.LectureQuestionResponse;
 import de.unistuttgart.iste.meitrex.tutor_service.service.HintService;
 import de.unistuttgart.iste.meitrex.tutor_service.service.TutorService;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,7 @@ import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.stereotype.Controller;
 
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -30,7 +32,7 @@ public class TutorController {
             @ContextValue final LoggedInUser currentUser
     ) {
         if (userInput.isEmpty()){
-            return new LectureQuestionResponse("An empty message cannot be answered.");
+            return new LectureQuestionResponse("An empty message cannot be answered.", List.of());
         }
 
         return tutorService.handleUserQuestion(userInput, courseId, currentUser);
@@ -43,14 +45,11 @@ public class TutorController {
 
     @MutationMapping
     public HintResponse generateHint(
-            @Argument final String questionText,
+            @Argument final HintGenerationInput questionInput,
             @Argument final UUID courseId,
             @ContextValue final LoggedInUser currentUser
     ){
-        if (questionText.isEmpty()){
-            return new HintResponse("No Hint can be generated without a question in the quiz.");
-        }
-        return hintService.generateHintWithQuestion(questionText, courseId, currentUser);
+        return hintService.generateHintWithQuestion(questionInput, courseId, currentUser);
     }
 
 }
