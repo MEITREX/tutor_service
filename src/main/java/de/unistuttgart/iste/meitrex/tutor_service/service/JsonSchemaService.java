@@ -9,15 +9,11 @@ import org.springframework.stereotype.Service;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * A Spring service that generates and caches JSON schemas from Java classes.
- */
 @Service
 public class JsonSchemaService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // A thread-safe cache to store generated schemas and avoid re-computation.
     private final Map<Class<?>, String> schemaCache = new ConcurrentHashMap<>();
 
     /**
@@ -28,7 +24,6 @@ public class JsonSchemaService {
      * @return A JSON string representing the schema.
      */
     public String getJsonSchema(Class<?> dtoClass) {
-        // Use computeIfAbsent to generate the schema only if it's not already in the cache.
         return schemaCache.computeIfAbsent(dtoClass, key -> {
             try {
                 JsonSchemaGenerator schemaGen = new JsonSchemaGenerator(objectMapper);
@@ -36,7 +31,6 @@ public class JsonSchemaService {
                 schema.setId(null);
                 return objectMapper.writeValueAsString(schema);
             } catch (JsonProcessingException e) {
-                // If schema generation fails, wrap the exception in a runtime exception.
                 throw new RuntimeException("Failed to generate JSON schema for class: " + key.getName(), e);
             }
         });
