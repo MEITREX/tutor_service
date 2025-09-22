@@ -117,19 +117,14 @@ public class TutorService {
             TemplateArgs.builder().argumentName("content").argumentValue(contentString).build()
         );
 
-        LectureQuestionResponse response = ollamaService.startQuery(
-                LectureQuestionResponse.class, prompt, promptArgs, errorResponse);
+        TutorAnswer response = ollamaService.startQuery(
+                TutorAnswer.class, prompt, promptArgs, new TutorAnswer(ERROR_MESSAGE));
 
         List<Source> sources = segmentSearchResults.stream()
                 .map(this::generateSource)
                 .filter(Objects::nonNull)
                 .toList();
-
-        if(!sources.isEmpty()){
-            response.setSources(sources);
-        }
-
-        return response;
+        return new LectureQuestionResponse(response.getAnswer(), sources);
     }
 
     /**
