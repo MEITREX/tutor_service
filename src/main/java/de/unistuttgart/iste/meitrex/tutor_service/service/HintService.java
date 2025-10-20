@@ -22,14 +22,6 @@ public class HintService {
     @Value("${semantic.search.threshold.hint:0.4}")
     private double scoreThreshold;
 
-    /**
-     * Generates a hint for a given question based on relevant lecture content.
-     *
-     * @param input The input containing the question text, type, and options.
-     * @param courseId The ID of the course to search for relevant content.
-     * @param currentUser The user requesting the hint.
-     * @return A HintResponse containing the generated hint or an error message.
-     */
     private static final Map<String, String> PROMPT_TEMPLATES = Map.of(
             "GENERATION", "generate_hint.md",
             "QUESTION", "question_prompt_{QUESTION_TYPE}.md",
@@ -38,6 +30,14 @@ public class HintService {
     );
 
 
+    /**
+     * Generates a hint for a given question based on relevant lecture content.
+     *
+     * @param input The input containing the question text, type, and options.
+     * @param courseId The ID of the course to search for relevant content.
+     * @param currentUser The user requesting the hint.
+     * @return A HintResponse containing the generated hint or an error message.
+     */
     public HintResponse generateHintWithQuestion(
             HintGenerationInput input,
             UUID courseId,
