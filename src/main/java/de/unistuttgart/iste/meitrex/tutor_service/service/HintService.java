@@ -35,33 +35,20 @@ public class HintService {
             UUID courseId,
             final LoggedInUser currentUser
     ) {
+        log.debug("Starting hint generation for course {} and question type {}", courseId, input.getType());
         // First fill the prompt corresponding to the question type
         HintGenerationData generationData = getGenerationData(input);
-        String promptName = PROMPT_TEMPLATES.get("QUESTION").replace("{QUESTION_TYPE}", input.getType().toString());
-        String questionPrompt = ollamaService.getTemplate(promptName);
-        List<TemplateArgs> questionPromptArgs = List.of(
-                TemplateArgs.builder().argumentName("questionText").argumentValue(generationData.getQuestionText()).build(),
-                TemplateArgs.builder().argumentName("options").argumentValue(generationData.getOptionsText()).build());
-        questionPrompt = ollamaService.fillTemplate(questionPrompt, questionPromptArgs);
+        String questionPrompt = prepareQuestionPrompt(input.getType(), generationData);
 
         /*
         * Perform a semantic search using the query defined in HintGenerationData
         * Query is either generated or the provided question text based on the question type
         */
-        List<SemanticSearchResult> searchResults =
-                semanticSearchService.semanticSearch(generationData.getSemanticSearchQuery(), courseId, currentUser);
-        if (searchResults.isEmpty()) {
-            return new HintResponse("No relevant content found in the lecture for this question");
-        }
-
-        List<DocumentRecordSegment> documentSegments = searchResults.stream()
-                .filter(result -> result.getScore() <= scoreThreshold)
-                .map(SemanticSearchResult::getMediaRecordSegment)
-                .filter(segment -> segment instanceof DocumentRecordSegment)
-                .map(segment -> (DocumentRecordSegment) segment)
-                .toList();
+        List<DocumentRecordSegment> documentSegments =
+                findRelevantDocumentSegments(generationData, courseId, currentUser);
 
         if (documentSegments.isEmpty()) {
+            log.warn("No relevant document segments found for hint generation. CourseId: {}", courseId);
             return new HintResponse("No relevant content found in the documents of this lecture for this question");
         }
 
@@ -78,6 +65,46 @@ public class HintService {
         );
 
         return ollamaService.startQuery(HintResponse.class, prompt, promptArgs, new HintResponse("An error occurred"));
+    }
+
+    /**
+     * Prepares the initial prompt that describes the question and its answer options.
+     */
+    private String prepareQuestionPrompt(HintQuestionType questionType, HintGenerationData generationData) {
+        String promptName = PROMPT_TEMPLATES.get("QUESTION").replace("{QUESTION_TYPE}", questionType.toString());
+        String questionPromptTemplate = ollamaService.getTemplate(promptName);
+
+        List<TemplateArgs> questionPromptArgs = List.of(
+                TemplateArgs.builder().argumentName("questionText").argumentValue(generationData.getQuestionText()).build(),
+                TemplateArgs.builder().argumentName("options").argumentValue(generationData.getOptionsText()).build());
+
+        return ollamaService.fillTemplate(questionPromptTemplate, questionPromptArgs);
+    }
+
+    /**
+     * Performs a semantic search and filters the results to find relevant document segments.
+     */
+    private List<DocumentRecordSegment> findRelevantDocumentSegments(
+            HintGenerationData generationData, UUID courseId, LoggedInUser currentUser) {
+
+        List<SemanticSearchResult> searchResults =
+                semanticSearchService.semanticSearch(generationData.getSemanticSearchQuery(), courseId, currentUser);
+
+        if (searchResults.isEmpty()) {
+            log.info("Semantic search returned no results for query: {}", generationData.getSemanticSearchQuery());
+            return List.of();
+        }
+
+        log.debug("Found {} semantic search results before filtering.", searchResults.size());
+        List <DocumentRecordSegment> thresholdedList = searchResults.stream()
+            .filter(result -> result.getScore() <= scoreThreshold)
+            .map(SemanticSearchResult::getMediaRecordSegment)
+            .filter(DocumentRecordSegment.class::isInstance)
+            .map(DocumentRecordSegment.class::cast)
+            .toList();
+        log.debug("Found {} document segments after filtering with threshold {}.",
+                thresholdedList.size(), scoreThreshold);
+        return thresholdedList;
     }
 
     private HintGenerationData getGenerationData(HintGenerationInput input) {
@@ -121,7 +148,7 @@ public class HintService {
         SemanticSearchQuery semanticSearchQuery = ollamaService.startQuery(
                 SemanticSearchQuery.class, promptName, promptArgs , new SemanticSearchQuery(questionText));
 
-        log.info("Generated search query {}", semanticSearchQuery.getQuery());
+        log.info("Generated search query for association question {}", semanticSearchQuery.getQuery());
 
         return HintGenerationData.builder()
                 .questionText(questionText)
@@ -147,7 +174,7 @@ public class HintService {
         SemanticSearchQuery semanticSearchQuery = ollamaService.startQuery(
                 SemanticSearchQuery.class, promptName, promptArgs , new SemanticSearchQuery(questionText));
 
-        log.info("Generated search query {}", semanticSearchQuery.getQuery());
+        log.info("Generated search query for cloze question {}", semanticSearchQuery.getQuery());
 
         return HintGenerationData
             .builder()
