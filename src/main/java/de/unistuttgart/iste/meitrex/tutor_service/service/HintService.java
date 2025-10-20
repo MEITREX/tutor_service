@@ -22,6 +22,14 @@ public class HintService {
     @Value("${semantic.search.threshold.hint:0.4}")
     private double scoreThreshold;
 
+    /**
+     * Generates a hint for a given question based on relevant lecture content.
+     *
+     * @param input The input containing the question text, type, and options.
+     * @param courseId The ID of the course to search for relevant content.
+     * @param currentUser The user requesting the hint.
+     * @return A HintResponse containing the generated hint or an error message.
+     */
     private static final Map<String, String> PROMPT_TEMPLATES = Map.of(
             "GENERATION", "generate_hint.md",
             "QUESTION", "question_prompt_{QUESTION_TYPE}.md",
@@ -40,10 +48,6 @@ public class HintService {
         HintGenerationData generationData = getGenerationData(input);
         String questionPrompt = prepareQuestionPrompt(input.getType(), generationData);
 
-        /*
-        * Perform a semantic search using the query defined in HintGenerationData
-        * Query is either generated or the provided question text based on the question type
-        */
         List<DocumentRecordSegment> documentSegments =
                 findRelevantDocumentSegments(generationData, courseId, currentUser);
 
@@ -69,20 +73,31 @@ public class HintService {
 
     /**
      * Prepares the initial prompt that describes the question and its answer options.
+     *
+     * @param questionType   The type of the question (e.g., MULTIPLE_CHOICE).
+     * @param generationData The data object containing the question text and options.
+     * @return A formatted string to be used as a prompt for the hint generation model.
      */
     private String prepareQuestionPrompt(HintQuestionType questionType, HintGenerationData generationData) {
         String promptName = PROMPT_TEMPLATES.get("QUESTION").replace("{QUESTION_TYPE}", questionType.toString());
         String questionPromptTemplate = ollamaService.getTemplate(promptName);
 
         List<TemplateArgs> questionPromptArgs = List.of(
-                TemplateArgs.builder().argumentName("questionText").argumentValue(generationData.getQuestionText()).build(),
-                TemplateArgs.builder().argumentName("options").argumentValue(generationData.getOptionsText()).build());
+                TemplateArgs.builder()
+                        .argumentName("questionText").argumentValue(generationData.getQuestionText()).build(),
+                TemplateArgs.builder()
+                        .argumentName("options").argumentValue(generationData.getOptionsText()).build());
 
         return ollamaService.fillTemplate(questionPromptTemplate, questionPromptArgs);
     }
 
     /**
      * Performs a semantic search and filters the results to find relevant document segments.
+     *
+     * @param generationData The data containing the semantic search query.
+     * @param courseId       The ID of the course to search in.
+     * @param currentUser    The user performing the search.
+     * @return A list of {@link DocumentRecordSegment}s that are deemed relevant based on the search score.
      */
     private List<DocumentRecordSegment> findRelevantDocumentSegments(
             HintGenerationData generationData, UUID courseId, LoggedInUser currentUser) {
@@ -107,6 +122,12 @@ public class HintService {
         return thresholdedList;
     }
 
+    /**
+     * Factory method to create {@link HintGenerationData} based on the question type.
+     *
+     * @param input The raw hint generation input.
+     * @return A populated {@link HintGenerationData} object.
+     */
     private HintGenerationData getGenerationData(HintGenerationInput input) {
         return switch (input.getType()) {
             case CLOZE -> buildClozeData(input.getCloze());
