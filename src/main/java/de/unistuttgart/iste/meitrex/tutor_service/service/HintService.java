@@ -1,5 +1,6 @@
 package de.unistuttgart.iste.meitrex.tutor_service.service;
 
+import de.unistuttgart.iste.meitrex.common.event.HexadPlayerType;
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
 import de.unistuttgart.iste.meitrex.generated.dto.*;
 import de.unistuttgart.iste.meitrex.tutor_service.service.models.*;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -18,6 +20,7 @@ import java.util.UUID;
 public class HintService {
     private final OllamaService ollamaService;
     private final SemanticSearchService semanticSearchService;
+    private final UserPlayerTypeService userPlayerTypeService;
 
     @Value("${semantic.search.threshold.hint:0.4}")
     private double scoreThreshold;
@@ -72,12 +75,48 @@ public class HintService {
         String prompt = ollamaService.getTemplate(PROMPT_TEMPLATES.get("GENERATION"));
         String contentString = semanticSearchService.formatIntoNumberedListForPrompt(
                 documentSegments.stream().map(DocumentRecordSegment::getText).toList());
+        String gamificationPrompt = generateGamificationPrompt(courseId, currentUser);
         List<TemplateArgs> promptArgs = List.of(
                 TemplateArgs.builder().argumentName("questionPrompt").argumentValue(questionPrompt).build(),
-                TemplateArgs.builder().argumentName("content").argumentValue(contentString).build()
+                TemplateArgs.builder().argumentName("content").argumentValue(contentString).build(),
+                TemplateArgs.builder().argumentName("gamificationPrompt").argumentValue(gamificationPrompt).build()
         );
 
         return ollamaService.startQuery(HintResponse.class, prompt, promptArgs, new HintResponse("An error occurred"));
+    }
+
+    private String generateGamificationPrompt(UUID courseId, final LoggedInUser currentUser) {
+        try {
+            Optional<HexadPlayerType> playerTypeOpt = userPlayerTypeService.getPrimaryPlayerType(currentUser.getId());
+            
+            if (playerTypeOpt.isEmpty()) {
+                log.warn("No player type found for user {}", currentUser.getId());
+                return ""; // Return empty string if no player type available
+            }
+            
+            HexadPlayerType playerType = playerTypeOpt.get();
+            log.info("Player type for user {}: {}", currentUser.getId(), playerType);
+
+            // Generate personalized prompt based on player type
+            return switch (playerType) {
+                case ACHIEVER ->
+                    "Give the user a small hint that helps them solve the problem without revealing the full solution. " +
+                    "Keep the hint short and motivating. This is for an Achiever who values mastery and goals.";
+                case PHILANTHROPIST, SOCIALISER ->
+                    "Encourage the user to collaborate and share knowledge. " +
+                    "If relevant, suggest looking for similar questions in the forum or encouraging them to help others. " +
+                    "This is for a Philanthropist or Socialiser who values social interaction.";
+                case FREE_SPIRIT ->
+                    "Give the user a normal hint that helps them understand the problem and explore solutions independently. " +
+                    "Encourage exploration and creativity. This is for a Free Spirit who values autonomy.";
+                case PLAYER, DISRUPTOR ->
+                    "Be especially careful not to reveal any solution directly. " +
+                    "Frame the hint as a challenge. This is for a Player or Disruptor who values competition.";
+            };
+        } catch (Exception e) {
+            log.error("Error fetching player type for user {}: {}", currentUser.getId(), e.getMessage());
+            return ""; // Return empty string on error to not break hint generation
+        }
     }
 
     private HintGenerationData getGenerationData(HintGenerationInput input) {

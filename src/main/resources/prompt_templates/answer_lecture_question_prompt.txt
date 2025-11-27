@@ -12,6 +12,9 @@ Your entire response must be a valid JSON object of the following form:
 
 {"answer": "your answer here"}
 
+You know how well the student usually performs in this course.
+{{skill}}
+
 If it helps clarity, you may refer to specific parts of the lecture content using their assigned numbers (e.g., "[1]", "[2]", etc.).
 ---
 

@@ -1,6 +1,7 @@
 package de.unistuttgart.iste.meitrex.tutor_service.service;
 
 import de.unistuttgart.iste.meitrex.common.event.AskedTutorAQuestionEvent;
+import de.unistuttgart.iste.meitrex.common.event.HexadPlayerType;
 import de.unistuttgart.iste.meitrex.common.event.TutorCategory;
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
 import de.unistuttgart.iste.meitrex.common.dapr.TopicPublisher;
@@ -10,13 +11,17 @@ import de.unistuttgart.iste.meitrex.generated.dto.Source;
 import de.unistuttgart.iste.meitrex.generated.dto.VideoSource;
 import de.unistuttgart.iste.meitrex.tutor_service.service.models.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TutorService {
@@ -24,8 +29,11 @@ public class TutorService {
     private final OllamaService ollamaService;
     private final SemanticSearchService semanticSearchService;
     private final TopicPublisher topicPublisher;
+    private final UserPlayerTypeService userPlayerTypeService;
     @Value("${semantic.search.threshold.tutor:0.4}")
     private double scoreThreshold;
+    @Value("${semantic.search.topN.tutor:5}")
+    private long topSourceCount;
 
     private final String ERROR_MESSAGE = ("Oops, something went wrong! " +
             "The request could not be processed. Please try again.");
@@ -33,6 +41,11 @@ public class TutorService {
     private static final List<String> PROMPT_TEMPLATES = List.of(
             "categorize_message_prompt.txt",
             "answer_lecture_question_prompt.txt"
+    );
+    private static final List<String> SKILL_LEVEL_PROMPT_TEMPLATES = List.of(
+            "low skill level",
+            "normal skill level",
+            "high performer"
     );
 
     /**
@@ -80,7 +93,14 @@ public class TutorService {
         return new LectureQuestionResponse(ERROR_MESSAGE, List.of());
     }
 
-    private LectureQuestionResponse answerLectureQuestion(String question, UUID courseId, LoggedInUser currentUser){
+    private LectureQuestionResponse answerLectureQuestion(String question, UUID courseId, LoggedInUser currentUser){        
+        Optional<HexadPlayerType> playerType = userPlayerTypeService.getPrimaryPlayerType(currentUser.getId());
+        if (playerType.isPresent()) {
+            log.info("User {} has player type: {}", currentUser.getId(), playerType.get());
+        } else {
+            log.info("User {} has no player type set", currentUser.getId());
+        }
+
         if(courseId == null){
             String response =
                 "Something went wrong! If your question is about lecture materials, " +
@@ -99,14 +119,35 @@ public class TutorService {
 
         List<DocumentRecordSegment> documentSegments = segmentSearchResults.stream()
                 .filter(result -> result.getScore() <= scoreThreshold)
+                .sorted(Comparator.comparingDouble(SemanticSearchResult::getScore).reversed())
                 .map(SemanticSearchResult::getMediaRecordSegment)
                 .filter(segment -> segment instanceof DocumentRecordSegment)
                 .map(segment -> (DocumentRecordSegment) segment)
+                .limit(topSourceCount)
                 .toList();
 
         if(documentSegments.isEmpty()){
             return new LectureQuestionResponse("No answer was found in the documents of the lecture.", List.of());
         }
+
+        /**
+        // Skill level range from 0 to 1
+        List<AllSkillLevelsEntity> skillLevels = getSkillLevelEntitiesForCourse(courseId, userId);
+        double averageSkillevel = skillLevels.stream()
+                .filter(Objects::nonNull)
+                .mapToDouble(Foo::getValue)
+                .average()
+                .orElse(0.0);
+        String skillLevelPromotContent;
+        if (averageSkillevel <= 0.3) {
+            skillLevelPromotContent = SKILL_LEVEL_PROMPT_TEMPLATES.get(0);
+        } else if (averageSkillevel < 0.7) {
+            skillLevelPromotContent = SKILL_LEVEL_PROMPT_TEMPLATES.get(1);
+        } else {
+            skillLevelPromotContent = SKILL_LEVEL_PROMPT_TEMPLATES.get(2);
+        }
+         */
+        String skillLevelPromotContent = ""; // remove later
 
         LectureQuestionResponse errorResponse = new LectureQuestionResponse(ERROR_MESSAGE, List.of());
         String prompt = ollamaService.getTemplate(PROMPT_TEMPLATES.get(1));
@@ -114,7 +155,8 @@ public class TutorService {
                 documentSegments.stream().map(DocumentRecordSegment::getText).toList());
         List<TemplateArgs> promptArgs = List.of(
             TemplateArgs.builder().argumentName("question").argumentValue(question).build(),
-            TemplateArgs.builder().argumentName("content").argumentValue(contentString).build()
+            TemplateArgs.builder().argumentName("content").argumentValue(contentString).build(),
+            TemplateArgs.builder().argumentName("skill").argumentValue(skillLevelPromotContent).build()
         );
 
         TutorAnswer response = ollamaService.startQuery(
