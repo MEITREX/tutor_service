@@ -2,7 +2,9 @@ package de.unistuttgart.iste.meitrex.tutor_service.controller;
 
 import de.unistuttgart.iste.meitrex.common.event.HexadPlayerType;
 import de.unistuttgart.iste.meitrex.common.event.UserHexadPlayerTypeSetEvent;
+import de.unistuttgart.iste.meitrex.common.event.skilllevels.UserSkillLevelChangedEvent;
 import de.unistuttgart.iste.meitrex.tutor_service.service.UserPlayerTypeService;
+import de.unistuttgart.iste.meitrex.tutor_service.service.UserSkillLevelService;
 import io.dapr.Topic;
 import io.dapr.client.domain.CloudEvent;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ import java.util.Map;
 public class SubscriptionController {
 
     private final UserPlayerTypeService userPlayerTypeService;
+    private final UserSkillLevelService userSkillLevelService;
 
     /**
      * Handles the user-hexad-player-type-set event.
@@ -56,6 +59,29 @@ public class SubscriptionController {
                     event.getUserId(),
                     event.getPrimaryPlayerType(),
                     playerTypePercentages
+            );
+        });
+    }
+
+    /**
+     * Handles the user-skill-level-changed event.
+     * Saves the user's skill level information when received.
+     * 
+     * @param cloudEvent the cloud event containing the user skill level data
+     * @param headers request headers from Dapr
+     * @return Mono<Void> for reactive processing
+     */
+    @Topic(name = "user-skill-level-changed", pubsubName = "meitrex")
+    @PostMapping(path = "/user-skill-level-changed-pubsub")
+    public Mono<Void> onUserSkillLevelChangedEvent(@RequestBody CloudEvent<UserSkillLevelChangedEvent> cloudEvent,
+                                                     @RequestHeader Map<String, String> headers) {
+        return Mono.fromRunnable(() -> {
+            UserSkillLevelChangedEvent event = cloudEvent.getData();
+
+            userSkillLevelService.saveUserSkillLevel(
+                    event.getUserId(),
+                    event.getSkillId(),
+                    event.getNewValue()
             );
         });
     }

@@ -2,6 +2,7 @@ package de.unistuttgart.iste.meitrex.tutor_service.service;
 
 import de.unistuttgart.iste.meitrex.common.event.HexadPlayerType;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.entity.UserPlayerTypeEntity;
+import de.unistuttgart.iste.meitrex.tutor_service.persistence.mapper.UserPlayerTypeMapper;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.repository.UserPlayerTypeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,7 @@ import java.util.UUID;
 public class UserPlayerTypeService {
 
     private final UserPlayerTypeRepository userPlayerTypeRepository;
+    private final UserPlayerTypeMapper userPlayerTypeMapper;
 
     /**
      * Saves or updates user player type information from an event.
@@ -34,13 +36,14 @@ public class UserPlayerTypeService {
     public void saveUserPlayerType(UUID userId, HexadPlayerType primaryPlayerType, Map<HexadPlayerType, Double> playerTypePercentages) {
         log.info("Saving player type for user {}: primaryType={}", userId, primaryPlayerType);
         
-        UserPlayerTypeEntity entity = userPlayerTypeRepository.findById(userId)
-                .orElse(UserPlayerTypeEntity.builder()
-                        .userId(userId)
-                        .build());
+        Optional<UserPlayerTypeEntity> existingEntity = userPlayerTypeRepository.findById(userId);
         
-        entity.setPrimaryPlayerType(primaryPlayerType);
-        entity.setPlayerTypePercentagesFromMap(playerTypePercentages);
+        UserPlayerTypeEntity entity;
+        if (existingEntity.isPresent()) {
+            entity = userPlayerTypeMapper.updateEntity(existingEntity.get(), primaryPlayerType, playerTypePercentages);
+        } else {
+            entity = userPlayerTypeMapper.createEntity(userId, primaryPlayerType, playerTypePercentages);
+        }
         
         userPlayerTypeRepository.save(entity);
     }

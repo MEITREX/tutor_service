@@ -2,6 +2,7 @@ package de.unistuttgart.iste.meitrex.tutor_service.service;
 
 import de.unistuttgart.iste.meitrex.common.event.AskedTutorAQuestionEvent;
 import de.unistuttgart.iste.meitrex.common.event.HexadPlayerType;
+import de.unistuttgart.iste.meitrex.common.event.RequestUserSkillLevelEvent;
 import de.unistuttgart.iste.meitrex.common.event.TutorCategory;
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
 import de.unistuttgart.iste.meitrex.common.dapr.TopicPublisher;
@@ -9,6 +10,7 @@ import de.unistuttgart.iste.meitrex.generated.dto.DocumentSource;
 import de.unistuttgart.iste.meitrex.generated.dto.LectureQuestionResponse;
 import de.unistuttgart.iste.meitrex.generated.dto.Source;
 import de.unistuttgart.iste.meitrex.generated.dto.VideoSource;
+import de.unistuttgart.iste.meitrex.tutor_service.persistence.entity.UserSkillLevelEntity;
 import de.unistuttgart.iste.meitrex.tutor_service.service.models.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,10 +32,15 @@ public class TutorService {
     private final SemanticSearchService semanticSearchService;
     private final TopicPublisher topicPublisher;
     private final UserPlayerTypeService userPlayerTypeService;
+    private final UserSkillLevelService userSkillLevelService;
     @Value("${semantic.search.threshold.tutor:0.4}")
     private double scoreThreshold;
     @Value("${semantic.search.topN.tutor:5}")
     private long topSourceCount;
+    @Value("${skill.level.threshold.low:0.3}")
+    private double skillLevelLowThreshold;
+    @Value("${skill.level.threshold.high:0.7}")
+    private double skillLevelHighThreshold;
 
     private final String ERROR_MESSAGE = ("Oops, something went wrong! " +
             "The request could not be processed. Please try again.");
@@ -43,9 +50,11 @@ public class TutorService {
             "answer_lecture_question_prompt.txt"
     );
     private static final List<String> SKILL_LEVEL_PROMPT_TEMPLATES = List.of(
-            "low skill level",
-            "normal skill level",
-            "high performer"
+            "Provide a clear and simple hint that gently guides the user toward the next step without overwhelming them.",
+            "Give the user a balanced hint that assists their reasoning while still allowing them to work out the solution independently. " +
+            "Assume general familiarity with the topic",
+            "Offer a sophisticated and subtle hint that challenges the users understanding without giving away the solution. " +
+            "Use precise, domain-specific language and encourage deeper analysis or alternative approaches"
     );
 
     /**
@@ -130,24 +139,36 @@ public class TutorService {
             return new LectureQuestionResponse("No answer was found in the documents of the lecture.", List.of());
         }
 
-        /**
         // Skill level range from 0 to 1
-        List<AllSkillLevelsEntity> skillLevels = getSkillLevelEntitiesForCourse(courseId, userId);
-        double averageSkillevel = skillLevels.stream()
-                .filter(Objects::nonNull)
-                .mapToDouble(Foo::getValue)
-                .average()
-                .orElse(0.0);
+        List<UserSkillLevelEntity> skillLevels = userSkillLevelService.getAllSkillLevelsForUser(currentUser.getId());
+        double averageSkillLevel;
+        
+        if (skillLevels.isEmpty()) {
+            RequestUserSkillLevelEvent requestEvent = RequestUserSkillLevelEvent.builder()
+                    .userId(currentUser.getId())
+                    .build();
+            topicPublisher.notifyRequestUserSkillLevel(requestEvent);
+            
+            averageSkillLevel = 0.5;
+        } else {
+            averageSkillLevel = skillLevels.stream()
+                    .filter(Objects::nonNull)
+                    .mapToDouble(UserSkillLevelEntity::getSkillLevelValue)
+                    .average()
+                    .orElse(0.5);
+            log.info("User {} has {} skill levels with average: {}", 
+                    currentUser.getId(), skillLevels.size(), averageSkillLevel);
+        }
+        
         String skillLevelPromotContent;
-        if (averageSkillevel <= 0.3) {
+        if (averageSkillLevel <= skillLevelLowThreshold) {
             skillLevelPromotContent = SKILL_LEVEL_PROMPT_TEMPLATES.get(0);
-        } else if (averageSkillevel < 0.7) {
+            log.info("Using low skill level prompt for user {}", currentUser.getId());
+        } else if (averageSkillLevel < skillLevelHighThreshold) {
             skillLevelPromotContent = SKILL_LEVEL_PROMPT_TEMPLATES.get(1);
         } else {
             skillLevelPromotContent = SKILL_LEVEL_PROMPT_TEMPLATES.get(2);
         }
-         */
-        String skillLevelPromotContent = ""; // remove later
 
         LectureQuestionResponse errorResponse = new LectureQuestionResponse(ERROR_MESSAGE, List.of());
         String prompt = ollamaService.getTemplate(PROMPT_TEMPLATES.get(1));

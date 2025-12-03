@@ -13,7 +13,9 @@ import java.util.UUID;
  * Stores the primary player type and all six player type scores.
  */
 @Entity
-@Table(name = "user_player_type")
+@Table(name = "user_player_type", indexes = {
+    @Index(name = "idx_user_player_type_primary", columnList = "primary_player_type")
+})
 @Data
 @Builder
 @NoArgsConstructor
