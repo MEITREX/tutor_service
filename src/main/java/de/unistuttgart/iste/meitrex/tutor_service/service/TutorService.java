@@ -146,7 +146,6 @@ public class TutorService {
                 .map(SemanticSearchResult::getMediaRecordSegment)
                 .filter(segment -> segment instanceof DocumentRecordSegment)
                 .map(segment -> (DocumentRecordSegment) segment)
-                .limit(topSourceCount)
                 .toList();
 
         if(documentSegments.isEmpty()){
@@ -198,6 +197,10 @@ public class TutorService {
                 TutorAnswer.class, prompt, promptArgs, new TutorAnswer(ERROR_MESSAGE));
 
         List<Source> sources = segmentSearchResults.stream()
+                .filter(result -> result.getScore() <= scoreThreshold)
+                .filter(result -> result.getMediaRecordSegment() instanceof DocumentRecordSegment)
+                .sorted(Comparator.comparingDouble(SemanticSearchResult::getScore).reversed())
+                .limit(topSourceCount)
                 .map(this::generateSource)
                 .filter(Objects::nonNull)
                 .toList();
