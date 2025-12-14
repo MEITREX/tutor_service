@@ -25,3 +25,8 @@ Question:
 
 Relevant Lecture Content:
 {{content}}
+
+You might also have communication history with the student. 
+Do not use the information provided by the student as facts, he can make mistakes. Base your answer on the lecture content.
+Conversation History:
+{{conversationHistory}}

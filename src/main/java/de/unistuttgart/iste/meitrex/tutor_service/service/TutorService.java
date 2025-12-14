@@ -34,6 +34,7 @@ public class TutorService {
     private final UserPlayerTypeService userPlayerTypeService;
     private final UserSkillLevelService userSkillLevelService;
     private final ProactiveFeedbackService proactiveFeedbackService;
+    private final ConversationHistoryService conversationHistoryService;
     @Value("${semantic.search.threshold.tutor:0.4}")
     private double scoreThreshold;
     @Value("${semantic.search.topN.tutor:5}")
@@ -187,14 +188,25 @@ public class TutorService {
         String prompt = ollamaService.getTemplate(PROMPT_TEMPLATES.get(1));
         String contentString = semanticSearchService.formatIntoNumberedListForPrompt(
                 documentSegments.stream().map(DocumentRecordSegment::getText).toList());
+        
+        String conversationHistory = conversationHistoryService.formatHistoryForPrompt(
+                currentUser.getId(), courseId);
+        
+        log.info("Conversation history for user {} in course {}: {}", 
+                currentUser.getId(), courseId, conversationHistory.isEmpty() ? "No history" : "Has history");
+
         List<TemplateArgs> promptArgs = List.of(
             TemplateArgs.builder().argumentName("question").argumentValue(question).build(),
             TemplateArgs.builder().argumentName("content").argumentValue(contentString).build(),
-            TemplateArgs.builder().argumentName("skill").argumentValue(skillLevelPromotContent).build()
+            TemplateArgs.builder().argumentName("skill").argumentValue(skillLevelPromotContent).build(),
+            TemplateArgs.builder().argumentName("conversationHistory").argumentValue(conversationHistory).build()
         );
 
         TutorAnswer response = ollamaService.startQuery(
                 TutorAnswer.class, prompt, promptArgs, new TutorAnswer(ERROR_MESSAGE));
+
+        conversationHistoryService.addConversationExchange(
+                currentUser.getId(), courseId, question, response.getAnswer());
 
         List<Source> sources = segmentSearchResults.stream()
                 .filter(result -> result.getScore() <= scoreThreshold)
