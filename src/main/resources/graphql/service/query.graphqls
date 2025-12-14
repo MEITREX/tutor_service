@@ -1,3 +1,13 @@
 type Query {
     _empty: String
+    
+    """
+    Retrieves the most recent proactive feedback for the current user on a specific assessment.
+    """
+    proactiveFeedback(assessmentId: UUID!): ProactiveFeedback
+    
+    """
+    Retrieves all proactive feedback for the current user, ordered by most recent first.
+    """
+    allProactiveFeedback: [ProactiveFeedback!]!
 }

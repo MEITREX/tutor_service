@@ -1,8 +1,10 @@
 package de.unistuttgart.iste.meitrex.tutor_service.controller;
 
+import de.unistuttgart.iste.meitrex.common.event.ContentProgressedEvent;
 import de.unistuttgart.iste.meitrex.common.event.HexadPlayerType;
 import de.unistuttgart.iste.meitrex.common.event.UserHexadPlayerTypeSetEvent;
 import de.unistuttgart.iste.meitrex.common.event.skilllevels.UserSkillLevelChangedEvent;
+import de.unistuttgart.iste.meitrex.tutor_service.service.ProactiveFeedbackService;
 import de.unistuttgart.iste.meitrex.tutor_service.service.UserPlayerTypeService;
 import de.unistuttgart.iste.meitrex.tutor_service.service.UserSkillLevelService;
 import io.dapr.Topic;
@@ -28,6 +30,7 @@ public class SubscriptionController {
 
     private final UserPlayerTypeService userPlayerTypeService;
     private final UserSkillLevelService userSkillLevelService;
+    private final ProactiveFeedbackService proactiveFeedbackService;
 
     /**
      * Handles the user-hexad-player-type-set event.
@@ -83,6 +86,43 @@ public class SubscriptionController {
                     event.getSkillId(),
                     event.getNewValue()
             );
+        });
+    }
+
+    /**
+     * Handles the content-progressed event.
+     * Generates proactive tutor feedback when a user completes an assignment.
+     * Currently supports proactive feedback for assignments and quizzes.
+     * 
+     * @param cloudEvent the cloud event containing the content progressed data
+     * @param headers request headers from Dapr
+     * @return Mono<Void> for reactive processing
+     */
+    @Topic(name = "content-progressed", pubsubName = "meitrex")
+    @PostMapping(path = "/content-progressed-pubsub")
+    public Mono<Void> onContentProgressedEvent(@RequestBody CloudEvent<ContentProgressedEvent> cloudEvent,
+                                                 @RequestHeader Map<String, String> headers) {                         
+        return Mono.fromRunnable(() -> {
+            try {
+                ContentProgressedEvent event = cloudEvent.getData();
+                
+                log.info("Received ContentProgressedEvent for user: {}, content: {}, type: {}", 
+                        event.getUserId(), 
+                        event.getContentId(),
+                        event.getContentType());
+                
+                if (event.getContentType() == ContentProgressedEvent.ContentType.ASSIGNMENT ||
+                    event.getContentType() == ContentProgressedEvent.ContentType.QUIZ) {
+                    try {
+                        proactiveFeedbackService.generateFeedback(event);
+                    } catch (Exception e) {
+                        log.error("Failed to generate feedback for user {} on content {}: {}", 
+                                event.getUserId(), event.getContentId(), e.getMessage(), e);
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Error processing ContentProgressedEvent: {}", e.getMessage(), e);
+            }
         });
     }
 }

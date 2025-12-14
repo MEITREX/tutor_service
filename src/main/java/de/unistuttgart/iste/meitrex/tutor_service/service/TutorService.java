@@ -33,6 +33,7 @@ public class TutorService {
     private final TopicPublisher topicPublisher;
     private final UserPlayerTypeService userPlayerTypeService;
     private final UserSkillLevelService userSkillLevelService;
+    private final ProactiveFeedbackService proactiveFeedbackService;
     @Value("${semantic.search.threshold.tutor:0.4}")
     private double scoreThreshold;
     @Value("${semantic.search.topN.tutor:5}")
@@ -60,6 +61,7 @@ public class TutorService {
     /**
      * Handles a user’s question by categorizing it and returning an appropriate response.
      * Lecture questions are further processed, while other categories currently return default answers.
+     * Special handling: if the user input is "proactivefeedback", retrieves and deletes the latest saved feedback for the user.
      *
      * @param userQuestion the question asked by the user
      * @param courseId     the ID of the course, required for lecture-related questions
@@ -67,6 +69,18 @@ public class TutorService {
      * @return a response object containing the answer or a default message
      */
     public LectureQuestionResponse handleUserQuestion(String userQuestion, UUID courseId, LoggedInUser currentUser){
+
+        // Special handling for proactive feedback retrieval. Will be removed once proactive feedback is integrated into the main flow and graphql works correctly.
+        if ("proactivefeedback".equalsIgnoreCase(userQuestion.trim())) {
+            Optional<String> feedback = proactiveFeedbackService.getAndDeleteLatestFeedback(currentUser.getId());
+            if (feedback.isPresent()) {
+                log.info("Retrieved proactive feedback for user {}", currentUser.getId());
+                return new LectureQuestionResponse(feedback.get(), List.of());
+            } else {
+                log.info("No proactive feedback available for user {}", currentUser.getId());
+                return new LectureQuestionResponse("No proactive feedback available at the moment.", List.of());
+            }
+        }
 
         CategorizedQuestion categorizedQuestion = preprocessQuestion(userQuestion);
 

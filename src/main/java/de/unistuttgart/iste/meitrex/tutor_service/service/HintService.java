@@ -69,7 +69,7 @@ public class HintService {
         }
 
         /*
-        *  Now generate the hint given the question, answer options (which is injected via the questionPrompt) and
+        * Now generate the hint given the question, answer options (which is injected via the questionPrompt) and
         * the text inside segments which have been found relevant via the semantic search
         */
         String prompt = ollamaService.getTemplate(PROMPT_TEMPLATES.get("GENERATION"));
@@ -85,19 +85,26 @@ public class HintService {
         return ollamaService.startQuery(HintResponse.class, prompt, promptArgs, new HintResponse("An error occurred"));
     }
 
+    /**
+     * Generates a gamification prompt based on the user's primary player type.
+     * Returns an empty string if no player type is found or an error occurs.
+     * 
+     * @param courseId the ID of the course
+     * @param currentUser the current logged-in user
+     * @return the gamification prompt string 
+     */
     private String generateGamificationPrompt(UUID courseId, final LoggedInUser currentUser) {
         try {
             Optional<HexadPlayerType> playerTypeOpt = userPlayerTypeService.getPrimaryPlayerType(currentUser.getId());
             
             if (playerTypeOpt.isEmpty()) {
                 log.warn("No player type found for user {}", currentUser.getId());
-                return ""; // Return empty string if no player type available
+                return "";
             }
             
             HexadPlayerType playerType = playerTypeOpt.get();
             log.info("Player type for user {}: {}", currentUser.getId(), playerType);
 
-            // Generate personalized prompt based on player type
             return switch (playerType) {
                 case ACHIEVER ->
                     "Give the user a small hint that helps them solve the problem without revealing the full solution. " +
@@ -115,7 +122,7 @@ public class HintService {
             };
         } catch (Exception e) {
             log.error("Error fetching player type for user {}: {}", currentUser.getId(), e.getMessage());
-            return ""; // Return empty string on error to not break hint generation
+            return "";
         }
     }
 
