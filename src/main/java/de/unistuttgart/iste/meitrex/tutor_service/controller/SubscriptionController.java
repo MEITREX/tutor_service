@@ -2,9 +2,11 @@ package de.unistuttgart.iste.meitrex.tutor_service.controller;
 
 import de.unistuttgart.iste.meitrex.common.event.ContentProgressedEvent;
 import de.unistuttgart.iste.meitrex.common.event.HexadPlayerType;
+import de.unistuttgart.iste.meitrex.common.event.StudentCodeSubmittedEvent;
 import de.unistuttgart.iste.meitrex.common.event.UserHexadPlayerTypeSetEvent;
 import de.unistuttgart.iste.meitrex.common.event.skilllevels.UserSkillLevelChangedEvent;
 import de.unistuttgart.iste.meitrex.tutor_service.service.ProactiveFeedbackService;
+import de.unistuttgart.iste.meitrex.tutor_service.service.StudentCodeSubmissionService;
 import de.unistuttgart.iste.meitrex.tutor_service.service.UserPlayerTypeService;
 import de.unistuttgart.iste.meitrex.tutor_service.service.UserSkillLevelService;
 import io.dapr.Topic;
@@ -31,6 +33,7 @@ public class SubscriptionController {
     private final UserPlayerTypeService userPlayerTypeService;
     private final UserSkillLevelService userSkillLevelService;
     private final ProactiveFeedbackService proactiveFeedbackService;
+    private final StudentCodeSubmissionService studentCodeSubmissionService;
 
     /**
      * Handles the user-hexad-player-type-set event.
@@ -122,6 +125,44 @@ public class SubscriptionController {
                 }
             } catch (Exception e) {
                 log.error("Error processing ContentProgressedEvent: {}", e.getMessage(), e);
+            }
+        });
+    }
+
+    /**
+     * Handles the student-code-submitted event.
+     * Saves the student's code submission when received.
+     * Only keeps the latest submission per student per assignment.
+     * 
+     * @param cloudEvent the cloud event containing the student code submission data
+     * @param headers request headers from Dapr
+     * @return Mono<Void> for reactive processing
+     */
+    @Topic(name = "student-code-submitted", pubsubName = "meitrex")
+    @PostMapping(path = "/student-code-submitted-pubsub")
+    public Mono<Void> onStudentCodeSubmittedEvent(@RequestBody CloudEvent<StudentCodeSubmittedEvent> cloudEvent,
+                                                    @RequestHeader Map<String, String> headers) {
+        return Mono.fromRunnable(() -> {
+            try {
+                StudentCodeSubmittedEvent event = cloudEvent.getData();
+                
+                log.info("Received StudentCodeSubmittedEvent for student: {}, assignment: {}, commit: {}", 
+                        event.getStudentId(), 
+                        event.getAssignmentId(),
+                        event.getCommitSha());
+                
+                studentCodeSubmissionService.saveCodeSubmission(
+                        event.getStudentId(),
+                        event.getAssignmentId(),
+                        event.getCourseId(),
+                        event.getRepositoryUrl(),
+                        event.getCommitSha(),
+                        event.getCommitTimestamp(),
+                        event.getFiles(),
+                        event.getBranch()
+                );
+            } catch (Exception e) {
+                log.error("Error processing StudentCodeSubmittedEvent: {}", e.getMessage(), e);
             }
         });
     }

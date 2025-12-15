@@ -24,11 +24,16 @@ public class TutorServiceTest {
     private final OllamaService ollamaService = Mockito.mock(OllamaService.class);
     private final SemanticSearchService semanticSearchService = Mockito.mock(SemanticSearchService.class);
     private final TopicPublisher topicPublisher = Mockito.mock(TopicPublisher.class);
+    private final UserPlayerTypeService userPlayerTypeService = Mockito.mock(UserPlayerTypeService.class);
+    private final UserSkillLevelService userSkillLevelService = Mockito.mock(UserSkillLevelService.class);
+    private final ProactiveFeedbackService proactiveFeedbackService = Mockito.mock(ProactiveFeedbackService.class);
+    private final ConversationHistoryService conversationHistoryService = Mockito.mock(ConversationHistoryService.class);
     private TutorService tutorService;
 
     @BeforeEach
     void setUp() {
-        tutorService = new TutorService(ollamaService, semanticSearchService, topicPublisher);
+        tutorService = new TutorService(ollamaService, semanticSearchService, topicPublisher, 
+                userPlayerTypeService, userSkillLevelService, proactiveFeedbackService, conversationHistoryService);
         ReflectionTestUtils.setField(tutorService, "scoreThreshold", 0.4);
     }
     private final UUID courseId = UUID.randomUUID();
