@@ -33,6 +33,7 @@ public class ProactiveFeedbackService {
     private final UserPlayerTypeService userPlayerTypeService;
     private final UserSkillLevelService userSkillLevelService;
     private final ProactiveFeedbackRepository proactiveFeedbackRepository;
+    private final StudentCodeSubmissionService studentCodeSubmissionService;
     
     /**
      * Per-user reactive sinks for streaming feedback to subscribers.
@@ -98,6 +99,11 @@ public class ProactiveFeedbackService {
             String individualizedPrompt = getIndivualizedPromotProactiveTestDone(event.getUserId(), event.getCorrectness());
 
             String performanceContext = getPerformanceContext(event);
+            
+            String codeContext = "";
+            if (event.getContentType() == ContentProgressedEvent.ContentType.ASSIGNMENT) {
+                codeContext = getCodeContextForAssignment(event.getUserId(), event.getContentId());
+            }
 
             String prompt = ollamaService.getTemplate(FEEDBACK_PROMPT_TEMPLATE);
             List<TemplateArgs> promptArgs = List.of(
@@ -112,6 +118,10 @@ public class ProactiveFeedbackService {
                     TemplateArgs.builder()
                             .argumentName("individualizedPrompt")
                             .argumentValue(individualizedPrompt)
+                            .build(),
+                    TemplateArgs.builder()
+                            .argumentName("codeContext")
+                            .argumentValue(codeContext)
                             .build()
             );
 
@@ -310,6 +320,33 @@ public class ProactiveFeedbackService {
             return "solid understanding demonstrated";
         } else {
             return "significant gaps in understanding";
+        }
+    }
+
+    /**
+     * Retrieves code context for an assignment if available.
+     * Returns an empty string if no code submission is found.
+     * 
+     * @param userId the user's ID
+     * @param assignmentId the assignment's ID
+     * @return formatted code context or empty string
+     */
+    private String getCodeContextForAssignment(UUID userId, UUID assignmentId) {
+        try {
+            Optional<String> codeContext = studentCodeSubmissionService.getCodeSubmissionContextForTutor(
+                    userId, assignmentId);
+            
+            if (codeContext.isPresent()) {
+                log.debug("Retrieved code submission for user {} on assignment {}", userId, assignmentId);
+                return codeContext.get();
+            } else {
+                log.debug("No code submission found for user {} on assignment {}", userId, assignmentId);
+                return "";
+            }
+        } catch (Exception e) {
+            log.warn("Failed to retrieve code context for user {} on assignment {}: {}", 
+                    userId, assignmentId, e.getMessage());
+            return "";
         }
     }
 }
