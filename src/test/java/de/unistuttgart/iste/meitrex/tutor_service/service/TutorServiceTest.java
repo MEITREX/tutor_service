@@ -28,12 +28,14 @@ public class TutorServiceTest {
     private final UserSkillLevelService userSkillLevelService = Mockito.mock(UserSkillLevelService.class);
     private final ProactiveFeedbackService proactiveFeedbackService = Mockito.mock(ProactiveFeedbackService.class);
     private final ConversationHistoryService conversationHistoryService = Mockito.mock(ConversationHistoryService.class);
+    private final StudentCodeSubmissionService studentCodeSubmissionService = Mockito.mock(StudentCodeSubmissionService.class);
     private TutorService tutorService;
 
     @BeforeEach
     void setUp() {
         tutorService = new TutorService(ollamaService, semanticSearchService, topicPublisher, 
-                userPlayerTypeService, userSkillLevelService, proactiveFeedbackService, conversationHistoryService);
+                userPlayerTypeService, userSkillLevelService, proactiveFeedbackService, 
+                conversationHistoryService, studentCodeSubmissionService);
         ReflectionTestUtils.setField(tutorService, "scoreThreshold", 0.4);
     }
     private final UUID courseId = UUID.randomUUID();
@@ -106,6 +108,8 @@ public class TutorServiceTest {
         when(semanticSearchService.formatIntoNumberedListForPrompt(Mockito.any())).thenReturn("Mocked content");
         when(ollamaService.startQuery(Mockito.eq(TutorAnswer.class), Mockito.any(), Mockito.any(),
                 Mockito.any())).thenReturn(new TutorAnswer(expectedAnswer));
+        when(userSkillLevelService.getAllSkillLevelsForUser(Mockito.any())).thenReturn(List.of());
+        when(conversationHistoryService.formatHistoryForPrompt(Mockito.any(), Mockito.any())).thenReturn("");
 
 
         LectureQuestionResponse response = tutorService.handleUserQuestion(question, courseId, loggedInUser);
