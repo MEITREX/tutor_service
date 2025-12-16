@@ -13,6 +13,7 @@ import org.mockito.Mockito;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static de.unistuttgart.iste.meitrex.common.testutil.TestUsers.userWithMembershipInCourseWithId;
@@ -170,5 +171,58 @@ public class TutorServiceTest {
 
         LectureQuestionResponse response = tutorService.handleUserQuestion(question, courseId, loggedInUser);
         assertEquals(expectedAnswer, response.getAnswer());
+    }
+
+    @Test
+    void testHandleUserQuestion_withCodeFeedbackCategoryNoCourseId() {
+        String question = "Can you review my code?";
+        CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question, TutorCategory.CODE_FEEDBACK);
+        when(ollamaService.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(categorizedQuestion);
+        when(ollamaService.getTemplate(Mockito.any())).thenReturn("Mocked Prompt");
+
+        String expectedAnswer = "Something went wrong! If your question is about code for an assignment, " +
+                "please navigate to the course it relates to. Thank you! :)";
+
+        LectureQuestionResponse response = tutorService.handleUserQuestion(question, null, loggedInUser);
+        assertEquals(expectedAnswer, response.getAnswer());
+    }
+
+    @Test
+    void testHandleUserQuestion_withCodeFeedbackNoSubmissions() {
+        String question = "Can you review my code?";
+        CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question, TutorCategory.CODE_FEEDBACK);
+        
+        when(ollamaService.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(categorizedQuestion);
+        when(ollamaService.getTemplate(Mockito.any())).thenReturn("Mocked Prompt");
+        when(studentCodeSubmissionService.getCodeSubmissionsForStudent(Mockito.any())).thenReturn(List.of());
+
+        String expectedAnswer = "I couldn't find any code submission from you. " +
+                "Please make sure you've committed your code to your assignment repository. " +
+                "Open this respository and try again. Make sure to commit and push your code first!";
+
+        LectureQuestionResponse response = tutorService.handleUserQuestion(question, courseId, loggedInUser);
+        assertEquals(expectedAnswer, response.getAnswer());
+    }
+
+    @Test
+    void testHandleUserQuestion_withProactiveFeedbackKeyword() {
+        String feedback = "Great job on your assignment!";
+        when(proactiveFeedbackService.getAndDeleteLatestFeedback(loggedInUser.getId()))
+                .thenReturn(Optional.of(feedback));
+
+        LectureQuestionResponse response = tutorService.handleUserQuestion("proactivefeedback", courseId, loggedInUser);
+        assertEquals(feedback, response.getAnswer());
+        Mockito.verify(proactiveFeedbackService).getAndDeleteLatestFeedback(loggedInUser.getId());
+    }
+
+    @Test
+    void testHandleUserQuestion_withProactiveFeedbackKeywordNoFeedback() {
+        when(proactiveFeedbackService.getAndDeleteLatestFeedback(loggedInUser.getId()))
+                .thenReturn(Optional.empty());
+
+        LectureQuestionResponse response = tutorService.handleUserQuestion("proactivefeedback", courseId, loggedInUser);
+        assertEquals("No proactive feedback available at the moment.", response.getAnswer());
     }
 }
