@@ -58,7 +58,7 @@ public class SubscriptionController {
             Map<HexadPlayerType, Double> playerTypePercentages = new HashMap<>();
             event.getPlayerTypePercentages().forEach((type, percentage) -> {
                 if (percentage != null) {
-                    playerTypePercentages.put(type, percentage.doubleValue());
+                    playerTypePercentages.put(type, (double) percentage);
                 }
             });
             
