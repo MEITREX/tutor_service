@@ -56,9 +56,11 @@ public class SubscriptionController {
             
             // Convert Float playerTypePercentages to Double
             Map<HexadPlayerType, Double> playerTypePercentages = new HashMap<>();
-            event.getPlayerTypePercentages().forEach((type, percentage) -> 
-                playerTypePercentages.put(type, percentage.doubleValue())
-            );
+            event.getPlayerTypePercentages().forEach((type, percentage) -> {
+                if (percentage != null) {
+                    playerTypePercentages.put(type, percentage.doubleValue());
+                }
+            });
             
             // Save the player type information
             userPlayerTypeService.saveUserPlayerType(
