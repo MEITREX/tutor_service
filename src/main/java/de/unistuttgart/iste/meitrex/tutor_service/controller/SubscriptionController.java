@@ -106,25 +106,26 @@ public class SubscriptionController {
     public Mono<Void> onContentProgressedEvent(@RequestBody CloudEvent<ContentProgressedEvent> cloudEvent,
                                                  @RequestHeader Map<String, String> headers) {                         
         return Mono.fromRunnable(() -> {
-            try {
-                ContentProgressedEvent event = cloudEvent.getData();
-                
-                log.info("Received ContentProgressedEvent for user: {}, content: {}, type: {}", 
-                        event.getUserId(), 
-                        event.getContentId(),
-                        event.getContentType());
-                
-                if (event.getContentType() == ContentProgressedEvent.ContentType.ASSIGNMENT ||
-                    event.getContentType() == ContentProgressedEvent.ContentType.QUIZ) {
-                    try {
-                        proactiveFeedbackService.generateFeedback(event);
-                    } catch (Exception e) {
-                        log.error("Failed to generate feedback for user {} on content {}: {}", 
-                                event.getUserId(), event.getContentId(), e.getMessage(), e);
-                    }
+            ContentProgressedEvent event = cloudEvent.getData();
+            
+            if (event == null) {
+                log.warn("Received ContentProgressedEvent with null data");
+                return;
+            }
+            
+            log.info("Received ContentProgressedEvent for user: {}, content: {}, type: {}", 
+                    event.getUserId(), 
+                    event.getContentId(),
+                    event.getContentType());
+            
+            if (event.getContentType() == ContentProgressedEvent.ContentType.ASSIGNMENT ||
+                event.getContentType() == ContentProgressedEvent.ContentType.QUIZ) {
+                try {
+                    proactiveFeedbackService.generateFeedback(event);
+                } catch (Exception e) {
+                    log.error("Failed to generate feedback for user {} on content {}: {}", 
+                            event.getUserId(), event.getContentId(), e.getMessage(), e);
                 }
-            } catch (Exception e) {
-                log.error("Error processing ContentProgressedEvent: {}", e.getMessage(), e);
             }
         });
     }
@@ -143,14 +144,19 @@ public class SubscriptionController {
     public Mono<Void> onStudentCodeSubmittedEvent(@RequestBody CloudEvent<StudentCodeSubmittedEvent> cloudEvent,
                                                     @RequestHeader Map<String, String> headers) {
         return Mono.fromRunnable(() -> {
+            StudentCodeSubmittedEvent event = cloudEvent.getData();
+            
+            if (event == null) {
+                log.warn("Received StudentCodeSubmittedEvent with null data");
+                return;
+            }
+            
+            log.info("Received StudentCodeSubmittedEvent for student: {}, assignment: {}, commit: {}", 
+                    event.getStudentId(), 
+                    event.getAssignmentId(),
+                    event.getCommitSha());
+            
             try {
-                StudentCodeSubmittedEvent event = cloudEvent.getData();
-                
-                log.info("Received StudentCodeSubmittedEvent for student: {}, assignment: {}, commit: {}", 
-                        event.getStudentId(), 
-                        event.getAssignmentId(),
-                        event.getCommitSha());
-                
                 studentCodeSubmissionService.saveCodeSubmission(
                         event.getStudentId(),
                         event.getAssignmentId(),
@@ -162,7 +168,8 @@ public class SubscriptionController {
                         event.getBranch()
                 );
             } catch (Exception e) {
-                log.error("Error processing StudentCodeSubmittedEvent: {}", e.getMessage(), e);
+                log.error("Error processing StudentCodeSubmittedEvent for student {} on assignment {}: {}", 
+                        event.getStudentId(), event.getAssignmentId(), e.getMessage(), e);
             }
         });
     }
