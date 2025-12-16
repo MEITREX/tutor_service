@@ -207,4 +207,159 @@ class ProactiveFeedbackServiceTest {
         assertEquals(expectedFeedback, result);
         verify(proactiveFeedbackRepository, times(1)).save(any(ProactiveFeedbackEntity.class));
     }
+
+    @Test
+    void testGenerateFeedback_withDisruptorFallbackToHighestType() {
+        ContentProgressedEvent event = ContentProgressedEvent.builder()
+                .userId(userId)
+                .contentId(assignmentId)
+                .contentType(ContentProgressedEvent.ContentType.ASSIGNMENT)
+                .correctness(0.95)
+                .success(true)
+                .build();
+
+        String expectedFeedback = "Great work!";
+        
+        UserPlayerTypeEntity playerTypeEntity = UserPlayerTypeEntity.builder()
+                .userId(userId)
+                .primaryPlayerType(HexadPlayerType.DISRUPTOR)
+                .achieverScore(0.8)
+                .playerScore(0.6)
+                .socialiserScore(0.5)
+                .freeSpiritScore(0.3)
+                .philanthropistScore(0.7)
+                .disruptorScore(0.85)
+                .build();
+
+        when(ollamaService.getTemplate(anyString())).thenReturn("Mock template");
+        when(ollamaService.startQuery(eq(TutorAnswer.class), anyString(), anyList(), any()))
+                .thenReturn(new TutorAnswer(expectedFeedback));
+        when(userPlayerTypeService.getPrimaryPlayerType(userId))
+                .thenReturn(Optional.of(HexadPlayerType.DISRUPTOR));
+        when(userPlayerTypeService.getUserPlayerType(userId))
+                .thenReturn(Optional.of(playerTypeEntity));
+        when(studentCodeSubmissionService.getCodeSubmissionContextForTutor(userId, assignmentId))
+                .thenReturn(Optional.empty());
+        when(proactiveFeedbackRepository.save(any())).thenAnswer(invocation -> {
+            ProactiveFeedbackEntity entity = invocation.getArgument(0);
+            entity.setId(UUID.randomUUID());
+            return entity;
+        });
+
+        String result = proactiveFeedbackService.generateFeedback(event);
+
+        assertNotNull(result);
+        assertEquals(expectedFeedback, result);
+        verify(userPlayerTypeService, times(1)).getUserPlayerType(userId);
+    }
+
+    @Test
+    void testGenerateFeedback_withException() {
+        ContentProgressedEvent event = ContentProgressedEvent.builder()
+                .userId(userId)
+                .contentId(assignmentId)
+                .contentType(ContentProgressedEvent.ContentType.ASSIGNMENT)
+                .correctness(0.85)
+                .success(true)
+                .build();
+
+        when(ollamaService.getTemplate(anyString())).thenThrow(new RuntimeException("Test exception"));
+
+        String result = proactiveFeedbackService.generateFeedback(event);
+
+        assertNull(result);
+        verify(proactiveFeedbackRepository, never()).save(any(ProactiveFeedbackEntity.class));
+    }
+
+    @Test
+    void testGetFeedbackForAssignment() {
+        ProactiveFeedbackEntity feedbackEntity = ProactiveFeedbackEntity.builder()
+                .id(UUID.randomUUID())
+                .userId(userId)
+                .assessmentId(assignmentId)
+                .feedbackText("Test feedback")
+                .correctness(0.85)
+                .success(true)
+                .createdAt(OffsetDateTime.now())
+                .build();
+
+        when(proactiveFeedbackRepository.findFirstByUserIdAndAssessmentIdOrderByCreatedAtDesc(userId, assignmentId))
+                .thenReturn(Optional.of(feedbackEntity));
+
+        Optional<ProactiveFeedbackEntity> result = proactiveFeedbackService.getFeedbackForAssignment(userId, assignmentId);
+
+        assertTrue(result.isPresent());
+        assertEquals(feedbackEntity, result.get());
+    }
+
+    @Test
+    void testGetAllFeedbackForUser() {
+        ProactiveFeedbackEntity feedback1 = ProactiveFeedbackEntity.builder()
+                .id(UUID.randomUUID())
+                .userId(userId)
+                .assessmentId(assignmentId)
+                .feedbackText("Feedback 1")
+                .correctness(0.85)
+                .success(true)
+                .createdAt(OffsetDateTime.now())
+                .build();
+
+        ProactiveFeedbackEntity feedback2 = ProactiveFeedbackEntity.builder()
+                .id(UUID.randomUUID())
+                .userId(userId)
+                .assessmentId(UUID.randomUUID())
+                .feedbackText("Feedback 2")
+                .correctness(0.75)
+                .success(true)
+                .createdAt(OffsetDateTime.now().minusHours(1))
+                .build();
+
+        when(proactiveFeedbackRepository.findByUserIdOrderByCreatedAtDesc(userId))
+                .thenReturn(List.of(feedback1, feedback2));
+
+        List<ProactiveFeedbackEntity> result = proactiveFeedbackService.getAllFeedbackForUser(userId);
+
+        assertEquals(2, result.size());
+        assertEquals(feedback1, result.get(0));
+        assertEquals(feedback2, result.get(1));
+    }
+
+    @Test
+    void testGetAndDeleteLatestFeedback() {
+        ProactiveFeedbackEntity feedbackEntity = ProactiveFeedbackEntity.builder()
+                .id(UUID.randomUUID())
+                .userId(userId)
+                .assessmentId(assignmentId)
+                .feedbackText("Latest feedback")
+                .correctness(0.90)
+                .success(true)
+                .createdAt(OffsetDateTime.now())
+                .build();
+
+        when(proactiveFeedbackRepository.findByUserIdOrderByCreatedAtDesc(userId))
+                .thenReturn(List.of(feedbackEntity));
+
+        Optional<String> result = proactiveFeedbackService.getAndDeleteLatestFeedback(userId);
+
+        assertTrue(result.isPresent());
+        assertEquals("Latest feedback", result.get());
+        verify(proactiveFeedbackRepository, times(1)).delete(feedbackEntity);
+    }
+
+    @Test
+    void testGetAndDeleteLatestFeedback_noFeedbackAvailable() {
+        when(proactiveFeedbackRepository.findByUserIdOrderByCreatedAtDesc(userId))
+                .thenReturn(List.of());
+
+        Optional<String> result = proactiveFeedbackService.getAndDeleteLatestFeedback(userId);
+
+        assertFalse(result.isPresent());
+        verify(proactiveFeedbackRepository, never()).delete(any());
+    }
+
+    @Test
+    void testProactiveFeedbackStream() {
+        var publisher = proactiveFeedbackService.proactiveFeedbackStream(userId);
+        assertNotNull(publisher);
+    }
 }
