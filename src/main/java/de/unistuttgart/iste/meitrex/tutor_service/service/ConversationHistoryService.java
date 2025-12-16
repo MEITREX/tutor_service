@@ -100,6 +100,7 @@ public class ConversationHistoryService {
      * @param courseId the course ID
      * @return formatted conversation history
      */
+    @Transactional(readOnly = true)
     public String formatHistoryForPrompt(UUID userId, UUID courseId) {
         List<ConversationHistoryEntity> history = getRecentHistory(userId, courseId);
         
