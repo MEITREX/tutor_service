@@ -13,6 +13,14 @@ type Mutation {
 
 }
 
+type Subscription {
+    """
+    Subscribe to newly generated proactive feedback for the current user.
+    Emits feedback automatically when an assignment is completed.
+    """
+    proactiveFeedbackAdded(userId: UUID!): ProactiveFeedback!
+}
+
 type LectureQuestionResponse {
     answer: String!
     sources: [Source!]!
@@ -67,4 +75,13 @@ input HintAssociationInput {
 input AssociationPairInput {
     left: String!
     right: String!
+}
+
+type ProactiveFeedback {
+    id: UUID!
+    assessmentId: UUID!
+    feedbackText: String!
+    correctness: Float!
+    success: Boolean!
+    createdAt: DateTime!
 }

@@ -36,4 +36,8 @@ out/
 ### VS Code ###
 .vscode/
 
+# Auto-generated API documentation
+**/api.md
+**/combined.graphql
+
 node_modules/

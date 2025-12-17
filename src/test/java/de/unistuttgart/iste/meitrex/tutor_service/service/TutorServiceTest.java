@@ -13,6 +13,7 @@ import org.mockito.Mockito;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static de.unistuttgart.iste.meitrex.common.testutil.TestUsers.userWithMembershipInCourseWithId;
@@ -24,11 +25,18 @@ public class TutorServiceTest {
     private final OllamaService ollamaService = Mockito.mock(OllamaService.class);
     private final SemanticSearchService semanticSearchService = Mockito.mock(SemanticSearchService.class);
     private final TopicPublisher topicPublisher = Mockito.mock(TopicPublisher.class);
+    private final UserPlayerTypeService userPlayerTypeService = Mockito.mock(UserPlayerTypeService.class);
+    private final UserSkillLevelService userSkillLevelService = Mockito.mock(UserSkillLevelService.class);
+    private final ProactiveFeedbackService proactiveFeedbackService = Mockito.mock(ProactiveFeedbackService.class);
+    private final ConversationHistoryService conversationHistoryService = Mockito.mock(ConversationHistoryService.class);
+    private final StudentCodeSubmissionService studentCodeSubmissionService = Mockito.mock(StudentCodeSubmissionService.class);
     private TutorService tutorService;
 
     @BeforeEach
     void setUp() {
-        tutorService = new TutorService(ollamaService, semanticSearchService, topicPublisher);
+        tutorService = new TutorService(ollamaService, semanticSearchService, topicPublisher, 
+                userPlayerTypeService, userSkillLevelService, proactiveFeedbackService, 
+                conversationHistoryService, studentCodeSubmissionService);
         ReflectionTestUtils.setField(tutorService, "scoreThreshold", 0.4);
     }
     private final UUID courseId = UUID.randomUUID();
@@ -101,6 +109,8 @@ public class TutorServiceTest {
         when(semanticSearchService.formatIntoNumberedListForPrompt(Mockito.any())).thenReturn("Mocked content");
         when(ollamaService.startQuery(Mockito.eq(TutorAnswer.class), Mockito.any(), Mockito.any(),
                 Mockito.any())).thenReturn(new TutorAnswer(expectedAnswer));
+        when(userSkillLevelService.getAllSkillLevelsForUser(Mockito.any())).thenReturn(List.of());
+        when(conversationHistoryService.formatHistoryForPrompt(Mockito.any(), Mockito.any())).thenReturn("");
 
 
         LectureQuestionResponse response = tutorService.handleUserQuestion(question, courseId, loggedInUser);
@@ -161,5 +171,58 @@ public class TutorServiceTest {
 
         LectureQuestionResponse response = tutorService.handleUserQuestion(question, courseId, loggedInUser);
         assertEquals(expectedAnswer, response.getAnswer());
+    }
+
+    @Test
+    void testHandleUserQuestion_withCodeFeedbackCategoryNoCourseId() {
+        String question = "Can you review my code?";
+        CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question, TutorCategory.CODE_FEEDBACK);
+        when(ollamaService.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(categorizedQuestion);
+        when(ollamaService.getTemplate(Mockito.any())).thenReturn("Mocked Prompt");
+
+        String expectedAnswer = "Something went wrong! If your question is about code for an assignment, " +
+                "please navigate to the course it relates to. Thank you! :)";
+
+        LectureQuestionResponse response = tutorService.handleUserQuestion(question, null, loggedInUser);
+        assertEquals(expectedAnswer, response.getAnswer());
+    }
+
+    @Test
+    void testHandleUserQuestion_withCodeFeedbackNoSubmissions() {
+        String question = "Can you review my code?";
+        CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question, TutorCategory.CODE_FEEDBACK);
+        
+        when(ollamaService.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(categorizedQuestion);
+        when(ollamaService.getTemplate(Mockito.any())).thenReturn("Mocked Prompt");
+        when(studentCodeSubmissionService.getCodeSubmissionsForStudent(Mockito.any())).thenReturn(List.of());
+
+        String expectedAnswer = "I couldn't find any code submission from you. " +
+                "Please make sure you've committed your code to your assignment repository. " +
+                "Open this respository and try again. Make sure to commit and push your code first!";
+
+        LectureQuestionResponse response = tutorService.handleUserQuestion(question, courseId, loggedInUser);
+        assertEquals(expectedAnswer, response.getAnswer());
+    }
+
+    @Test
+    void testHandleUserQuestion_withProactiveFeedbackKeyword() {
+        String feedback = "Great job on your assignment!";
+        when(proactiveFeedbackService.getAndDeleteLatestFeedback(loggedInUser.getId()))
+                .thenReturn(Optional.of(feedback));
+
+        LectureQuestionResponse response = tutorService.handleUserQuestion("proactivefeedback", courseId, loggedInUser);
+        assertEquals(feedback, response.getAnswer());
+        Mockito.verify(proactiveFeedbackService).getAndDeleteLatestFeedback(loggedInUser.getId());
+    }
+
+    @Test
+    void testHandleUserQuestion_withProactiveFeedbackKeywordNoFeedback() {
+        when(proactiveFeedbackService.getAndDeleteLatestFeedback(loggedInUser.getId()))
+                .thenReturn(Optional.empty());
+
+        LectureQuestionResponse response = tutorService.handleUserQuestion("proactivefeedback", courseId, loggedInUser);
+        assertEquals("No proactive feedback available at the moment.", response.getAnswer());
     }
 }

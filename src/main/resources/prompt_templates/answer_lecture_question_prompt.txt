@@ -12,6 +12,9 @@ Your entire response must be a valid JSON object of the following form:
 
 {"answer": "your answer here"}
 
+You know how well the student usually performs in this course.
+{{skill}}
+
 If it helps clarity, you may refer to specific parts of the lecture content using their assigned numbers (e.g., "[1]", "[2]", etc.).
 ---
 
@@ -22,3 +25,8 @@ Question:
 
 Relevant Lecture Content:
 {{content}}
+
+You might also have communication history with the student. 
+Do not use the information provided by the student as facts, he can make mistakes. Base your answer on the lecture content.
+Conversation History:
+{{conversationHistory}}
