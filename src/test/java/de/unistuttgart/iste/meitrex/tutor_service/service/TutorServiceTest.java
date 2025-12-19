@@ -63,8 +63,10 @@ public class TutorServiceTest {
         CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question,TutorCategory.OTHER);
         when(ollamaService.startQuery(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(categorizedQuestion);
         when(ollamaService.getTemplate(Mockito.any())).thenReturn("Mocked Prompt");
+        when(conversationHistoryService.formatHistoryForPrompt(Mockito.any(), Mockito.any())).thenReturn("");
+        when(studentCodeSubmissionService.getCodeSubmissionsForStudent(Mockito.any())).thenReturn(List.of());
 
-        LectureQuestionResponse response = tutorService.handleUserQuestion(question, null, loggedInUser);
+        LectureQuestionResponse response = tutorService.handleUserQuestion(question, courseId, loggedInUser);
         assertEquals("I'm currently unable to answer this type of message. " +
                         "However, I can still help you with questions about lecture materials or the MEITREX system :)",
                 response.getAnswer());
@@ -224,5 +226,78 @@ public class TutorServiceTest {
 
         LectureQuestionResponse response = tutorService.handleUserQuestion("proactivefeedback", courseId, loggedInUser);
         assertEquals("No proactive feedback available at the moment.", response.getAnswer());
+    }
+
+    @Test
+    void testHandleUserQuestion_withFollowUpQuestionWithCodeContext() {
+        String question = "Can you explain that better?";
+        CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question, TutorCategory.OTHER);
+        TutorAnswer tutorAnswer = new TutorAnswer("Here is a more detailed explanation based on your code.");
+        
+        de.unistuttgart.iste.meitrex.tutor_service.persistence.entity.StudentCodeSubmissionEntity submission = 
+                Mockito.mock(de.unistuttgart.iste.meitrex.tutor_service.persistence.entity.StudentCodeSubmissionEntity.class);
+        de.unistuttgart.iste.meitrex.tutor_service.persistence.entity.StudentCodeSubmissionEntity.PrimaryKey primaryKey = 
+                Mockito.mock(de.unistuttgart.iste.meitrex.tutor_service.persistence.entity.StudentCodeSubmissionEntity.PrimaryKey.class);
+        
+        when(primaryKey.getAssignmentId()).thenReturn(UUID.randomUUID());
+        when(submission.getPrimaryKey()).thenReturn(primaryKey);
+        when(submission.getLastUpdated()).thenReturn(java.time.OffsetDateTime.now());
+        
+        List<SemanticSearchResult> dummyResults = List.of(
+                SemanticSearchResult.builder()
+                        .score(0.15)
+                        .typename("DocumentRecordSegment")
+                        .mediaRecordSegment(DocumentRecordSegment.builder().page(2).text("Dummy content").build())
+                        .build()
+        );
+        
+        when(ollamaService.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(categorizedQuestion);
+        when(ollamaService.startQuery(Mockito.eq(TutorAnswer.class), Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(tutorAnswer);
+        when(ollamaService.getTemplate(Mockito.any())).thenReturn("Mocked Prompt");
+        when(conversationHistoryService.formatHistoryForPrompt(Mockito.any(), Mockito.any()))
+                .thenReturn("Previous conversation history");
+        when(studentCodeSubmissionService.getCodeSubmissionsForStudent(Mockito.any()))
+                .thenReturn(List.of(submission));
+        when(studentCodeSubmissionService.getCodeSubmissionContextForTutor(Mockito.any(), Mockito.any()))
+                .thenReturn(Optional.of("public class Example { }"));
+        when(semanticSearchService.semanticSearch(Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(dummyResults);
+        when(userSkillLevelService.getAllSkillLevelsForUser(Mockito.any())).thenReturn(List.of());
+
+        LectureQuestionResponse response = tutorService.handleUserQuestion(question, courseId, loggedInUser);
+        assertEquals("Here is a more detailed explanation based on your code.", response.getAnswer());
+    }
+
+    @Test
+    void testHandleUserQuestion_withFollowUpQuestionNoCodeContext() {
+        String question = "Can you clarify that?";
+        CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question, TutorCategory.OTHER);
+        TutorAnswer tutorAnswer = new TutorAnswer("Here is a clarification.");
+        
+        List<SemanticSearchResult> dummyResults = List.of(
+                SemanticSearchResult.builder()
+                        .score(0.15)
+                        .typename("DocumentRecordSegment")
+                        .mediaRecordSegment(DocumentRecordSegment.builder().page(2).text("Dummy content").build())
+                        .build()
+        );
+        
+        when(ollamaService.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(categorizedQuestion);
+        when(ollamaService.startQuery(Mockito.eq(TutorAnswer.class), Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(tutorAnswer);
+        when(ollamaService.getTemplate(Mockito.any())).thenReturn("Mocked Prompt");
+        when(conversationHistoryService.formatHistoryForPrompt(Mockito.any(), Mockito.any()))
+                .thenReturn("Previous conversation history");
+        when(studentCodeSubmissionService.getCodeSubmissionsForStudent(Mockito.any()))
+                .thenReturn(List.of());
+        when(semanticSearchService.semanticSearch(Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(dummyResults);
+        when(userSkillLevelService.getAllSkillLevelsForUser(Mockito.any())).thenReturn(List.of());
+
+        LectureQuestionResponse response = tutorService.handleUserQuestion(question, courseId, loggedInUser);
+        assertEquals("Here is a clarification.", response.getAnswer());
     }
 }

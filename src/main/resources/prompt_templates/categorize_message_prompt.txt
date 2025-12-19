@@ -6,7 +6,7 @@ Categories:
 1. SYSTEM: Choose this if the question is about the website or app the user is currently using. For example: "Where do I change my avatar?" These questions relate specifically to the system or platform itself.
 2. LECTURE: Choose this if the question is about understanding or explaining academic content related to a university course. These questions should NOT relate to the website or app. These question are not limited to only a "question" itself, but can also be message that convey the meaning of trying to understand a topic on a deeper level. For example: "What is unsupervised learning" or "Can you give examples for the Chain rule in differentiation"
 3. CODE_FEEDBACK: Choose this if the student is asking for feedback, help, or explanations about code they have written for an assignment. This includes questions about errors, improvements, debugging, or understanding their own code implementation. For example: "Can you help me with my code?" or "Why doesn't my function work?" or "How can I improve my implementation?"
-4. OTHER: Choose this if the question fits neither SYSTEM, LECTURE, nor CODE_FEEDBACK categories and is a general inquiry.
+4. OTHER: Choose this if the question if it is neither a SYSTEM, nor a LECTURE nor a CODE_FEEDBACK questopm and if the question might be a follow up question. For example: "Can you explain it again?" or "Can you explain it differently?" or "Can you provide an example to clarify your previous answer?"
 5. UNRECOGNIZABLE: Choose this if the question is too garbled, incomplete, or contains too many typos or grammar issues to be understood reliably.
 
 Only use the UNRECOGNIZABLE category when the meaning is truly unclear even after trying to correct it.

@@ -55,7 +55,8 @@ public class TutorService {
     private static final List<String> PROMPT_TEMPLATES = List.of(
             "categorize_message_prompt.txt",
             "answer_lecture_question_prompt.txt",
-            "answer_code_feedback_prompt.txt"
+            "answer_code_feedback_prompt.txt",
+            "answer_followup_question_prompt.txt"
     );
     private static final List<String> SKILL_LEVEL_PROMPT_TEMPLATES = List.of(
             "Provide a clear and simple hint that gently guides the user toward the next step without overwhelming them.",
@@ -108,9 +109,7 @@ public class TutorService {
             return new LectureQuestionResponse(unrecognizable, List.of());
         }
         if(category == TutorCategory.OTHER){
-            String other = ("I'm currently unable to answer this type of message. " +
-                    "However, I can still help you with questions about lecture materials or the MEITREX system :)");
-            return new LectureQuestionResponse(other, List.of());
+            return handleFollowUpQuestion(userQuestion, courseId, currentUser);
         }
         
         //Further process the question for the remaining categories 
@@ -193,6 +192,110 @@ public class TutorService {
                 .map(this::generateSource)
                 .filter(Objects::nonNull)
                 .toList();
+        return new LectureQuestionResponse(response.getAnswer(), sources);
+    }
+
+    /**
+     * Handles follow-up questions by performing semantic search on conversation history and the user's prompt.
+     * This method is used for questions categorized as OTHER, typically follow-ups to previous questions.
+     * 
+     * @param question the follow-up question asked by the user
+     * @param courseId the ID of the course
+     * @param currentUser the currently logged-in user
+     * @return a response containing the answer based on conversation history
+     */
+    private LectureQuestionResponse handleFollowUpQuestion(String question, UUID courseId, LoggedInUser currentUser) {
+        if (courseId == null) {
+            String response = "Something went wrong! If your question is a follow-up to previous questions, " +
+                    "please navigate to the course it relates to. Thank you! :)";
+            return new LectureQuestionResponse(response, List.of());
+        }
+
+        String conversationHistory = conversationHistoryService.formatHistoryForPrompt(
+                currentUser.getId(), courseId);
+
+        if (conversationHistory.isEmpty()) {
+            String response = ("I'm currently unable to answer this type of message. " +
+                    "However, I can still help you with questions about lecture materials or the MEITREX system :)");
+            return new LectureQuestionResponse(response, List.of());
+        }
+
+        String codeContext = "";
+        List<de.unistuttgart.iste.meitrex.tutor_service.persistence.entity.StudentCodeSubmissionEntity> submissions =
+                studentCodeSubmissionService.getCodeSubmissionsForStudent(currentUser.getId());
+
+        if (!submissions.isEmpty()) {
+            de.unistuttgart.iste.meitrex.tutor_service.persistence.entity.StudentCodeSubmissionEntity mostRecentSubmission =
+                    submissions.stream()
+                            .max(Comparator.comparing(de.unistuttgart.iste.meitrex.tutor_service.persistence.entity.StudentCodeSubmissionEntity::getLastUpdated))
+                            .orElse(null);
+
+            if (mostRecentSubmission != null) {
+                Optional<String> codeContextOpt = studentCodeSubmissionService.getCodeSubmissionContextForTutor(
+                        currentUser.getId(),
+                        mostRecentSubmission.getPrimaryKey().getAssignmentId());
+                
+                if (codeContextOpt.isPresent()) {
+                    codeContext = codeContextOpt.get();
+                }
+            }
+        }
+
+        String searchQuery = question + " " + conversationHistory;
+        if (!codeContext.isEmpty()) {
+            searchQuery += " " + codeContext;
+        }
+
+        List<SemanticSearchResult> searchResults = semanticSearchService.semanticSearch(
+                searchQuery, courseId, currentUser);
+
+        List<SemanticSearchResult> segmentSearchResults = searchResults.stream()
+                .filter(result -> result.getMediaRecordSegment() != null)
+                .toList();
+
+        List<DocumentRecordSegment> documentSegments = segmentSearchResults.stream()
+                .filter(result -> result.getScore() <= scoreThreshold)
+                .sorted(Comparator.comparingDouble(SemanticSearchResult::getScore).reversed())
+                .map(SemanticSearchResult::getMediaRecordSegment)
+                .filter(segment -> segment instanceof DocumentRecordSegment)
+                .map(segment -> (DocumentRecordSegment) segment)
+                .toList();
+
+        double averageSkillLevel = getAverageSkillLevel(currentUser.getId());
+        log.info("User {} average skill level: {}", currentUser.getId(), averageSkillLevel);
+
+        String skillLevelPromotContent = getSkillBasedFeedbackStyle(averageSkillLevel);
+
+        String prompt = ollamaService.getTemplate(PROMPT_TEMPLATES.get(3));
+        String contentString = semanticSearchService.formatIntoNumberedListForPrompt(
+                documentSegments.stream().map(DocumentRecordSegment::getText).toList());
+
+        log.info("Processing follow-up question for user {} in course {}",
+                currentUser.getId(), courseId);
+
+        List<TemplateArgs> promptArgs = List.of(
+                TemplateArgs.builder().argumentName("question").argumentValue(question).build(),
+                TemplateArgs.builder().argumentName("content").argumentValue(contentString).build(),
+                TemplateArgs.builder().argumentName("skill").argumentValue(skillLevelPromotContent).build(),
+                TemplateArgs.builder().argumentName("conversationHistory").argumentValue(conversationHistory).build(),
+                TemplateArgs.builder().argumentName("codeContext").argumentValue(codeContext).build()
+        );
+
+        TutorAnswer response = ollamaService.startQuery(
+                TutorAnswer.class, prompt, promptArgs, new TutorAnswer(ERROR_MESSAGE));
+
+        conversationHistoryService.addConversationExchange(
+                currentUser.getId(), courseId, question, response.getAnswer());
+
+        List<Source> sources = segmentSearchResults.stream()
+                .filter(result -> result.getScore() <= scoreThreshold)
+                .filter(result -> result.getMediaRecordSegment() instanceof DocumentRecordSegment)
+                .sorted(Comparator.comparingDouble(SemanticSearchResult::getScore).reversed())
+                .limit(topSourceCount)
+                .map(this::generateSource)
+                .filter(Objects::nonNull)
+                .toList();
+
         return new LectureQuestionResponse(response.getAnswer(), sources);
     }
 
