@@ -241,10 +241,13 @@ public class TutorService {
             }
         }
 
-        String searchQuery = question + " " + conversationHistory;
+        StringBuilder searchQueryBuilder = new StringBuilder(question)
+                .append(" ")
+                .append(conversationHistory);
         if (!codeContext.isEmpty()) {
-            searchQuery += " " + codeContext;
+            searchQueryBuilder.append(" ").append(codeContext);
         }
+        String searchQuery = searchQueryBuilder.toString();
 
         List<SemanticSearchResult> searchResults = semanticSearchService.semanticSearch(
                 searchQuery, courseId, currentUser);
