@@ -147,7 +147,6 @@ public class ProactiveFeedbackService {
 
             ProactiveFeedbackEntity savedEntity = proactiveFeedbackRepository.save(feedbackEntity);
 
-            // Convert to DTO and publish to subscribed clients
             ProactiveFeedback feedbackDto = ProactiveFeedback.builder()
                     .setId(savedEntity.getId())
                     .setAssessmentId(savedEntity.getAssessmentId())
@@ -192,9 +191,10 @@ public class ProactiveFeedbackService {
     /**
      * Retrieves the most recent feedback for a user and deletes it.
      * This is used when the frontend requests proactive feedback.
+     * Feedback older than 30 minutes is automatically discarded.
      *
      * @param userId the user ID
-     * @return optional feedback text, or empty if no feedback exists
+     * @return optional feedback text, or empty if no feedback exists or is older than 30 minutes
      */
     public Optional<String> getAndDeleteLatestFeedback(UUID userId) {
         List<ProactiveFeedbackEntity> feedbackList = proactiveFeedbackRepository.findByUserIdOrderByCreatedAtDesc(userId);
@@ -204,6 +204,13 @@ public class ProactiveFeedbackService {
         }
         
         ProactiveFeedbackEntity latestFeedback = feedbackList.get(0);
+        
+        OffsetDateTime thirtyMinutesAgo = OffsetDateTime.now().minusMinutes(30);
+        if (latestFeedback.getCreatedAt().isBefore(thirtyMinutesAgo)) {
+            proactiveFeedbackRepository.delete(latestFeedback);
+            return Optional.empty();
+        }
+        
         String feedbackText = latestFeedback.getFeedbackText();
         
         proactiveFeedbackRepository.delete(latestFeedback);

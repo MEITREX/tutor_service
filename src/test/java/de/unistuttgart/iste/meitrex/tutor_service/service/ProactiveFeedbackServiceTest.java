@@ -358,6 +358,49 @@ class ProactiveFeedbackServiceTest {
     }
 
     @Test
+    void testGetAndDeleteLatestFeedback_feedbackOlderThan30Minutes() {
+        ProactiveFeedbackEntity oldFeedbackEntity = ProactiveFeedbackEntity.builder()
+                .id(UUID.randomUUID())
+                .userId(userId)
+                .assessmentId(assignmentId)
+                .feedbackText("Old feedback that should be discarded")
+                .correctness(0.90)
+                .success(true)
+                .createdAt(OffsetDateTime.now().minusMinutes(31))
+                .build();
+
+        when(proactiveFeedbackRepository.findByUserIdOrderByCreatedAtDesc(userId))
+                .thenReturn(List.of(oldFeedbackEntity));
+
+        Optional<String> result = proactiveFeedbackService.getAndDeleteLatestFeedback(userId);
+
+        assertFalse(result.isPresent());
+        verify(proactiveFeedbackRepository, times(1)).delete(oldFeedbackEntity);
+    }
+
+    @Test
+    void testGetAndDeleteLatestFeedback_feedbackWithin30Minutes() {
+        ProactiveFeedbackEntity recentFeedbackEntity = ProactiveFeedbackEntity.builder()
+                .id(UUID.randomUUID())
+                .userId(userId)
+                .assessmentId(assignmentId)
+                .feedbackText("Recent feedback")
+                .correctness(0.90)
+                .success(true)
+                .createdAt(OffsetDateTime.now().minusMinutes(5))
+                .build();
+
+        when(proactiveFeedbackRepository.findByUserIdOrderByCreatedAtDesc(userId))
+                .thenReturn(List.of(recentFeedbackEntity));
+
+        Optional<String> result = proactiveFeedbackService.getAndDeleteLatestFeedback(userId);
+
+        assertTrue(result.isPresent());
+        assertEquals("Recent feedback", result.get());
+        verify(proactiveFeedbackRepository, times(1)).delete(recentFeedbackEntity);
+    }
+
+    @Test
     void testProactiveFeedbackStream() {
         var publisher = proactiveFeedbackService.proactiveFeedbackStream(userId);
         assertNotNull(publisher);
