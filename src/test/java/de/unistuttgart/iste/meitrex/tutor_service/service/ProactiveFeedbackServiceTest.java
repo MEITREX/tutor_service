@@ -359,7 +359,6 @@ class ProactiveFeedbackServiceTest {
 
     @Test
     void testGetAndDeleteLatestFeedback_feedbackOlderThan30Minutes() {
-        // Create feedback that is 31 minutes old
         ProactiveFeedbackEntity oldFeedbackEntity = ProactiveFeedbackEntity.builder()
                 .id(UUID.randomUUID())
                 .userId(userId)
@@ -381,7 +380,6 @@ class ProactiveFeedbackServiceTest {
 
     @Test
     void testGetAndDeleteLatestFeedback_feedbackWithin30Minutes() {
-        // Create feedback that is 5 minutes old
         ProactiveFeedbackEntity recentFeedbackEntity = ProactiveFeedbackEntity.builder()
                 .id(UUID.randomUUID())
                 .userId(userId)
