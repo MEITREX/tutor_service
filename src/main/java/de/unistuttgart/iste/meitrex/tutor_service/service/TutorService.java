@@ -82,10 +82,8 @@ public class TutorService {
         if ("proactivefeedback".equalsIgnoreCase(userQuestion.trim())) {
             Optional<String> feedback = proactiveFeedbackService.getAndDeleteLatestFeedback(currentUser.getId());
             if (feedback.isPresent()) {
-                log.info("Retrieved proactive feedback for user {}", currentUser.getId());
                 return new LectureQuestionResponse(feedback.get(), List.of());
             } else {
-                log.info("No proactive feedback available for user {}", currentUser.getId());
                 return new LectureQuestionResponse("No proactive feedback available at the moment.", List.of());
             }
         }
