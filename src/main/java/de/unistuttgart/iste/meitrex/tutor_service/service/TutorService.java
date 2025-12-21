@@ -88,6 +88,8 @@ public class TutorService {
             }
         }
 
+        log.info("[TUTOR] User {} asked question: {}", currentUser.getId(), userQuestion);
+
         CategorizedQuestion categorizedQuestion = preprocessQuestion(userQuestion);
 
         TutorCategory category = categorizedQuestion.getCategory();
@@ -359,6 +361,7 @@ public class TutorService {
                 studentCodeSubmissionService.getCodeSubmissionsForStudent(currentUser.getId());
 
         if (submissions.isEmpty()) {
+            log.info("[TUTOR-CODE-FEEDBACK] No code submissions found for user {}", currentUser.getId());
             return new LectureQuestionResponse(
                     CODE_FEEDBACK_NO_SUBMISSION_MESSAGE,
                     List.of());
@@ -370,6 +373,7 @@ public class TutorService {
                         .orElse(null);
 
         if (mostRecentSubmission == null) {
+            log.info("[TUTOR-CODE-FEEDBACK] Most recent submission is null for user {}", currentUser.getId());
             return new LectureQuestionResponse(
                     CODE_FEEDBACK_NO_SUBMISSION_MESSAGE,
                     List.of());
@@ -380,6 +384,8 @@ public class TutorService {
                 mostRecentSubmission.getPrimaryKey().getAssignmentId());
 
         if (codeContext.isEmpty()) {
+            log.info("[TUTOR-CODE-FEEDBACK] Code context is empty for user {} and assignment {}", 
+                    currentUser.getId(), mostRecentSubmission.getPrimaryKey().getAssignmentId());
             return new LectureQuestionResponse(
                     CODE_FEEDBACK_NO_SUBMISSION_MESSAGE,
                     List.of());
@@ -387,6 +393,9 @@ public class TutorService {
 
         String conversationHistory = conversationHistoryService.formatHistoryForPrompt(
                 currentUser.getId(), courseId);
+
+        log.info("[TUTOR-CODE-FEEDBACK] Preparing to query LLM for code feedback - user: {}, assignment: {}, code context length: {}",
+                currentUser.getId(), mostRecentSubmission.getPrimaryKey().getAssignmentId(), codeContext.get().length());
 
         String prompt = ollamaService.getTemplate(PROMPT_TEMPLATES.get(2));
         List<TemplateArgs> promptArgs = List.of(
@@ -402,6 +411,7 @@ public class TutorService {
         conversationHistoryService.addConversationExchange(
                 currentUser.getId(), courseId, question, response.getAnswer());
 
+        log.info("[TUTOR-CODE-FEEDBACK] Code feedback response generated for user {}", currentUser.getId());
         return new LectureQuestionResponse(response.getAnswer(), List.of());
     }
 
