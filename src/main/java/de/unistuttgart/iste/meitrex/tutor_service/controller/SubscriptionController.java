@@ -5,6 +5,7 @@ import de.unistuttgart.iste.meitrex.common.event.HexadPlayerType;
 import de.unistuttgart.iste.meitrex.common.event.StudentCodeSubmittedEvent;
 import de.unistuttgart.iste.meitrex.common.event.UserHexadPlayerTypeSetEvent;
 import de.unistuttgart.iste.meitrex.common.event.skilllevels.UserSkillLevelChangedEvent;
+import de.unistuttgart.iste.meitrex.tutor_service.config.StudentCodeSubmissionConfig;
 import de.unistuttgart.iste.meitrex.tutor_service.service.ProactiveFeedbackService;
 import de.unistuttgart.iste.meitrex.tutor_service.service.StudentCodeSubmissionService;
 import de.unistuttgart.iste.meitrex.tutor_service.service.UserPlayerTypeService;
@@ -34,6 +35,7 @@ public class SubscriptionController {
     private final UserSkillLevelService userSkillLevelService;
     private final ProactiveFeedbackService proactiveFeedbackService;
     private final StudentCodeSubmissionService studentCodeSubmissionService;
+    private final StudentCodeSubmissionConfig studentCodeSubmissionConfig;
 
     /**
      * Handles the user-hexad-player-type-set event.
@@ -161,9 +163,9 @@ public class SubscriptionController {
                     event.getCommitSha());
             
             try {
-                Map<String, String> filteredFiles = filterJavaFiles(event.getFiles());
+                Map<String, String> filteredFiles = filterFiles(event.getFiles());
                 
-                log.info("Filtered {} files down to {} Java files for student {} on assignment {}", 
+                log.info("Filtered {} files down to {} valid files for student {} on assignment {}", 
                         event.getFiles() != null ? event.getFiles().size() : 0,
                         filteredFiles.size(),
                         event.getStudentId(),
@@ -187,12 +189,13 @@ public class SubscriptionController {
     }
     
     /**
-     * Filters files to only include .java files with valid content and filename.
+     * Filters files to only include files with configured file endings and valid content.
+     * File endings are configured in application.properties under student.code.submission.file-endings.
      * 
      * @param files map of file paths to file contents
-     * @return filtered map containing only valid Java files
+     * @return filtered map containing only valid files with configured endings
      */
-    private Map<String, String> filterJavaFiles(Map<String, String> files) {
+    private Map<String, String> filterFiles(Map<String, String> files) {
         if (files == null) {
             return new HashMap<>();
         }
@@ -200,13 +203,22 @@ public class SubscriptionController {
         Map<String, String> filteredFiles = new HashMap<>();
         
         files.forEach((filename, content) -> {
-            if (filename != null && 
-                content != null && 
-                filename.endsWith(".java")) {
+            if (filename != null && content != null && hasAllowedFileEnding(filename)) {
                 filteredFiles.put(filename, content);
             }
         });
         
         return filteredFiles;
+    }
+    
+    /**
+     * Checks if a filename ends with one of the configured file endings.
+     * 
+     * @param filename the filename to check
+     * @return true if the filename ends with an allowed ending, false otherwise
+     */
+    private boolean hasAllowedFileEnding(String filename) {
+        return studentCodeSubmissionConfig.getFileEndings().stream()
+                .anyMatch(filename::endsWith);
     }
 }

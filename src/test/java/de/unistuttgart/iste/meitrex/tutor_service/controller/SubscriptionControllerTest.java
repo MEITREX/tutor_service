@@ -5,6 +5,7 @@ import de.unistuttgart.iste.meitrex.common.event.HexadPlayerType;
 import de.unistuttgart.iste.meitrex.common.event.StudentCodeSubmittedEvent;
 import de.unistuttgart.iste.meitrex.common.event.UserHexadPlayerTypeSetEvent;
 import de.unistuttgart.iste.meitrex.common.event.skilllevels.UserSkillLevelChangedEvent;
+import de.unistuttgart.iste.meitrex.tutor_service.config.StudentCodeSubmissionConfig;
 import de.unistuttgart.iste.meitrex.tutor_service.service.ProactiveFeedbackService;
 import de.unistuttgart.iste.meitrex.tutor_service.service.StudentCodeSubmissionService;
 import de.unistuttgart.iste.meitrex.tutor_service.service.UserPlayerTypeService;
@@ -19,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.OffsetDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -46,6 +48,9 @@ class SubscriptionControllerTest {
     @Mock
     private StudentCodeSubmissionService studentCodeSubmissionService;
 
+    @Mock
+    private StudentCodeSubmissionConfig studentCodeSubmissionConfig;
+
     @InjectMocks
     private SubscriptionController subscriptionController;
 
@@ -66,6 +71,9 @@ class SubscriptionControllerTest {
         contentId = UUID.randomUUID();
         assignmentId = UUID.randomUUID();
         courseId = UUID.randomUUID();
+        
+        lenient().when(studentCodeSubmissionConfig.getFileEndings())
+                .thenReturn(List.of(".java", ".kt", ".py"));
     }
 
     @Test
@@ -236,7 +244,9 @@ class SubscriptionControllerTest {
                 eq(repositoryUrl),
                 eq(commitSha),
                 eq(commitTimestamp),
-                eq(files),
+                argThat(filteredFiles -> filteredFiles.size() == 2 
+                        && filteredFiles.containsKey("src/Main.java")
+                        && filteredFiles.containsKey("src/Helper.java")),
                 eq(branch)
         );
     }
@@ -308,5 +318,231 @@ class SubscriptionControllerTest {
         assertDoesNotThrow(() -> subscriptionController.onContentProgressedEvent(cloudEvent, headers).block());
 
         verify(proactiveFeedbackService, never()).generateFeedback(any());
+    }
+    
+    @Test
+    void testFileFiltering_OnlyJavaFiles_AllSaved() {
+        Map<String, String> files = new HashMap<>();
+        files.put("src/Main.java", "public class Main {}");
+        files.put("src/Helper.java", "public class Helper {}");
+        files.put("src/Utils.java", "public class Utils {}");
+
+        StudentCodeSubmittedEvent event = createCodeSubmissionEvent(files);
+        CloudEvent<StudentCodeSubmittedEvent> cloudEvent = mock(CloudEvent.class);
+        when(cloudEvent.getData()).thenReturn(event);
+
+        assertDoesNotThrow(() -> subscriptionController.onStudentCodeSubmittedEvent(cloudEvent, headers).block());
+
+        verify(studentCodeSubmissionService, times(1)).saveCodeSubmission(
+                any(), any(), any(), any(), any(), any(),
+                argThat(filteredFiles -> filteredFiles.size() == 3),
+                any()
+        );
+    }
+
+    @Test
+    void testFileFiltering_MixedFileTypes_OnlyAllowedSaved() {
+        Map<String, String> files = new HashMap<>();
+        files.put("src/Main.java", "public class Main {}");
+        files.put("src/Helper.kt", "class Helper {}");
+        files.put("script.py", "print('hello')");
+        files.put("README.md", "# Documentation");
+        files.put("package.json", "{}");
+        files.put(".gitignore", "*.class");
+
+        StudentCodeSubmittedEvent event = createCodeSubmissionEvent(files);
+        CloudEvent<StudentCodeSubmittedEvent> cloudEvent = mock(CloudEvent.class);
+        when(cloudEvent.getData()).thenReturn(event);
+
+        assertDoesNotThrow(() -> subscriptionController.onStudentCodeSubmittedEvent(cloudEvent, headers).block());
+
+        verify(studentCodeSubmissionService, times(1)).saveCodeSubmission(
+                any(), any(), any(), any(), any(), any(),
+                argThat(filteredFiles -> 
+                        filteredFiles.size() == 3 
+                        && filteredFiles.containsKey("src/Main.java")
+                        && filteredFiles.containsKey("src/Helper.kt")
+                        && filteredFiles.containsKey("script.py")
+                        && !filteredFiles.containsKey("README.md")
+                        && !filteredFiles.containsKey("package.json")),
+                any()
+        );
+    }
+
+    @Test
+    void testFileFiltering_NullFilename_Filtered() {
+        Map<String, String> files = new HashMap<>();
+        files.put("src/Main.java", "public class Main {}");
+        files.put(null, "some content");
+
+        StudentCodeSubmittedEvent event = createCodeSubmissionEvent(files);
+        CloudEvent<StudentCodeSubmittedEvent> cloudEvent = mock(CloudEvent.class);
+        when(cloudEvent.getData()).thenReturn(event);
+
+        assertDoesNotThrow(() -> subscriptionController.onStudentCodeSubmittedEvent(cloudEvent, headers).block());
+
+        verify(studentCodeSubmissionService, times(1)).saveCodeSubmission(
+                any(), any(), any(), any(), any(), any(),
+                argThat(filteredFiles -> filteredFiles.size() == 1 && filteredFiles.containsKey("src/Main.java")),
+                any()
+        );
+    }
+
+    @Test
+    void testFileFiltering_NullContent_Filtered() {
+        Map<String, String> files = new HashMap<>();
+        files.put("src/Main.java", "public class Main {}");
+        files.put("src/Empty.java", null);
+
+        StudentCodeSubmittedEvent event = createCodeSubmissionEvent(files);
+        CloudEvent<StudentCodeSubmittedEvent> cloudEvent = mock(CloudEvent.class);
+        when(cloudEvent.getData()).thenReturn(event);
+
+        assertDoesNotThrow(() -> subscriptionController.onStudentCodeSubmittedEvent(cloudEvent, headers).block());
+
+        verify(studentCodeSubmissionService, times(1)).saveCodeSubmission(
+                any(), any(), any(), any(), any(), any(),
+                argThat(filteredFiles -> filteredFiles.size() == 1 && filteredFiles.containsKey("src/Main.java")),
+                any()
+        );
+    }
+
+    @Test
+    void testFileFiltering_NoMatchingFileEndings_EmptyMap() {
+        Map<String, String> files = new HashMap<>();
+        files.put("README.md", "# Documentation");
+        files.put("package.json", "{}");
+        files.put("Dockerfile", "FROM openjdk");
+
+        StudentCodeSubmittedEvent event = createCodeSubmissionEvent(files);
+        CloudEvent<StudentCodeSubmittedEvent> cloudEvent = mock(CloudEvent.class);
+        when(cloudEvent.getData()).thenReturn(event);
+
+        assertDoesNotThrow(() -> subscriptionController.onStudentCodeSubmittedEvent(cloudEvent, headers).block());
+
+        verify(studentCodeSubmissionService, times(1)).saveCodeSubmission(
+                any(), any(), any(), any(), any(), any(),
+                argThat(Map::isEmpty),
+                any()
+        );
+    }
+
+    @Test
+    void testFileFiltering_NullFilesMap_EmptyMap() {
+        StudentCodeSubmittedEvent event = createCodeSubmissionEvent(null);
+        CloudEvent<StudentCodeSubmittedEvent> cloudEvent = mock(CloudEvent.class);
+        when(cloudEvent.getData()).thenReturn(event);
+
+        assertDoesNotThrow(() -> subscriptionController.onStudentCodeSubmittedEvent(cloudEvent, headers).block());
+
+        verify(studentCodeSubmissionService, times(1)).saveCodeSubmission(
+                any(), any(), any(), any(), any(), any(),
+                argThat(Map::isEmpty),
+                any()
+        );
+    }
+
+    @Test
+    void testFileFiltering_EmptyFilesMap_EmptyMap() {
+        Map<String, String> files = new HashMap<>();
+
+        StudentCodeSubmittedEvent event = createCodeSubmissionEvent(files);
+        CloudEvent<StudentCodeSubmittedEvent> cloudEvent = mock(CloudEvent.class);
+        when(cloudEvent.getData()).thenReturn(event);
+
+        assertDoesNotThrow(() -> subscriptionController.onStudentCodeSubmittedEvent(cloudEvent, headers).block());
+
+        verify(studentCodeSubmissionService, times(1)).saveCodeSubmission(
+                any(), any(), any(), any(), any(), any(),
+                argThat(Map::isEmpty),
+                any()
+        );
+    }
+
+    @Test
+    void testFileFiltering_SingleFileEndingConfiguration_OnlyThatTypeSaved() {
+        // Configure to only accept .java files
+        when(studentCodeSubmissionConfig.getFileEndings()).thenReturn(List.of(".java"));
+
+        Map<String, String> files = new HashMap<>();
+        files.put("src/Main.java", "public class Main {}");
+        files.put("src/Helper.kt", "class Helper {}");
+        files.put("script.py", "print('hello')");
+
+        StudentCodeSubmittedEvent event = createCodeSubmissionEvent(files);
+        CloudEvent<StudentCodeSubmittedEvent> cloudEvent = mock(CloudEvent.class);
+        when(cloudEvent.getData()).thenReturn(event);
+
+        assertDoesNotThrow(() -> subscriptionController.onStudentCodeSubmittedEvent(cloudEvent, headers).block());
+
+        verify(studentCodeSubmissionService, times(1)).saveCodeSubmission(
+                any(), any(), any(), any(), any(), any(),
+                argThat(filteredFiles -> 
+                        filteredFiles.size() == 1 
+                        && filteredFiles.containsKey("src/Main.java")),
+                any()
+        );
+    }
+
+    @Test
+    void testFileFiltering_CaseSensitiveFileEndings() {
+        Map<String, String> files = new HashMap<>();
+        files.put("src/Main.java", "public class Main {}");
+        files.put("src/Helper.JAVA", "public class Helper {}"); // uppercase extension
+
+        StudentCodeSubmittedEvent event = createCodeSubmissionEvent(files);
+        CloudEvent<StudentCodeSubmittedEvent> cloudEvent = mock(CloudEvent.class);
+        when(cloudEvent.getData()).thenReturn(event);
+
+        assertDoesNotThrow(() -> subscriptionController.onStudentCodeSubmittedEvent(cloudEvent, headers).block());
+
+        verify(studentCodeSubmissionService, times(1)).saveCodeSubmission(
+                any(), any(), any(), any(), any(), any(),
+                argThat(filteredFiles -> 
+                        filteredFiles.size() == 1 
+                        && filteredFiles.containsKey("src/Main.java")
+                        && !filteredFiles.containsKey("src/Helper.JAVA")),
+                any()
+        );
+    }
+
+    @Test
+    void testFileFiltering_MultipleDotsInFilename() {
+        Map<String, String> files = new HashMap<>();
+        files.put("src/Main.test.java", "public class MainTest {}");
+        files.put("src/config.prod.py", "config = {}");
+        files.put("src/data.backup.json", "{}");
+
+        StudentCodeSubmittedEvent event = createCodeSubmissionEvent(files);
+        CloudEvent<StudentCodeSubmittedEvent> cloudEvent = mock(CloudEvent.class);
+        when(cloudEvent.getData()).thenReturn(event);
+
+        assertDoesNotThrow(() -> subscriptionController.onStudentCodeSubmittedEvent(cloudEvent, headers).block());
+
+        verify(studentCodeSubmissionService, times(1)).saveCodeSubmission(
+                any(), any(), any(), any(), any(), any(),
+                argThat(filteredFiles -> 
+                        filteredFiles.size() == 2 
+                        && filteredFiles.containsKey("src/Main.test.java")
+                        && filteredFiles.containsKey("src/config.prod.py")
+                        && !filteredFiles.containsKey("src/data.backup.json")),
+                any()
+        );
+    }
+
+    /**
+     * Helper method to create a StudentCodeSubmittedEvent with the given files.
+     */
+    private StudentCodeSubmittedEvent createCodeSubmissionEvent(Map<String, String> files) {
+        return StudentCodeSubmittedEvent.builder()
+                .studentId(userId)
+                .assignmentId(assignmentId)
+                .courseId(courseId)
+                .repositoryUrl("https://github.com/student/repo")
+                .commitSha("abc123")
+                .commitTimestamp(OffsetDateTime.now())
+                .files(files)
+                .branch("main")
+                .build();
     }
 }
