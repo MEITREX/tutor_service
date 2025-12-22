@@ -137,6 +137,8 @@ public class SubscriptionController {
      * Saves the student's code submission when received.
      * Only keeps the latest submission per student per assignment.
      * 
+     * Currently, only .java files with valid content and filenames are stored.
+     * 
      * @param cloudEvent the cloud event containing the student code submission data
      * @param headers request headers from Dapr
      * @return Mono<Void> for reactive processing
@@ -159,6 +161,14 @@ public class SubscriptionController {
                     event.getCommitSha());
             
             try {
+                Map<String, String> filteredFiles = filterJavaFiles(event.getFiles());
+                
+                log.info("Filtered {} files down to {} Java files for student {} on assignment {}", 
+                        event.getFiles() != null ? event.getFiles().size() : 0,
+                        filteredFiles.size(),
+                        event.getStudentId(),
+                        event.getAssignmentId());
+                
                 studentCodeSubmissionService.saveCodeSubmission(
                         event.getStudentId(),
                         event.getAssignmentId(),
@@ -166,7 +176,7 @@ public class SubscriptionController {
                         event.getRepositoryUrl(),
                         event.getCommitSha(),
                         event.getCommitTimestamp(),
-                        event.getFiles(),
+                        filteredFiles,
                         event.getBranch()
                 );
             } catch (Exception e) {
@@ -174,5 +184,29 @@ public class SubscriptionController {
                         event.getStudentId(), event.getAssignmentId(), e.getMessage(), e);
             }
         });
+    }
+    
+    /**
+     * Filters files to only include .java files with valid content and filename.
+     * 
+     * @param files map of file paths to file contents
+     * @return filtered map containing only valid Java files
+     */
+    private Map<String, String> filterJavaFiles(Map<String, String> files) {
+        if (files == null) {
+            return new HashMap<>();
+        }
+        
+        Map<String, String> filteredFiles = new HashMap<>();
+        
+        files.forEach((filename, content) -> {
+            if (filename != null && 
+                content != null && 
+                filename.endsWith(".java")) {
+                filteredFiles.put(filename, content);
+            }
+        });
+        
+        return filteredFiles;
     }
 }
