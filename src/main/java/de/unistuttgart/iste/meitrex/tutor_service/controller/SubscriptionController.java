@@ -5,6 +5,7 @@ import de.unistuttgart.iste.meitrex.common.event.HexadPlayerType;
 import de.unistuttgart.iste.meitrex.common.event.StudentCodeSubmittedEvent;
 import de.unistuttgart.iste.meitrex.common.event.UserHexadPlayerTypeSetEvent;
 import de.unistuttgart.iste.meitrex.common.event.skilllevels.UserSkillLevelChangedEvent;
+import de.unistuttgart.iste.meitrex.tutor_service.config.StudentCodeSubmissionConfig;
 import de.unistuttgart.iste.meitrex.tutor_service.service.ProactiveFeedbackService;
 import de.unistuttgart.iste.meitrex.tutor_service.service.StudentCodeSubmissionService;
 import de.unistuttgart.iste.meitrex.tutor_service.service.UserPlayerTypeService;
@@ -34,6 +35,7 @@ public class SubscriptionController {
     private final UserSkillLevelService userSkillLevelService;
     private final ProactiveFeedbackService proactiveFeedbackService;
     private final StudentCodeSubmissionService studentCodeSubmissionService;
+    private final StudentCodeSubmissionConfig studentCodeSubmissionConfig;
 
     /**
      * Handles the user-hexad-player-type-set event.
@@ -137,6 +139,8 @@ public class SubscriptionController {
      * Saves the student's code submission when received.
      * Only keeps the latest submission per student per assignment.
      * 
+     * Currently, only .java files with valid content and filenames are stored.
+     * 
      * @param cloudEvent the cloud event containing the student code submission data
      * @param headers request headers from Dapr
      * @return Mono<Void> for reactive processing
@@ -159,6 +163,14 @@ public class SubscriptionController {
                     event.getCommitSha());
             
             try {
+                Map<String, String> filteredFiles = filterFiles(event.getFiles());
+                
+                log.info("Filtered {} files down to {} valid files for student {} on assignment {}", 
+                        event.getFiles() != null ? event.getFiles().size() : 0,
+                        filteredFiles.size(),
+                        event.getStudentId(),
+                        event.getAssignmentId());
+                
                 studentCodeSubmissionService.saveCodeSubmission(
                         event.getStudentId(),
                         event.getAssignmentId(),
@@ -166,7 +178,7 @@ public class SubscriptionController {
                         event.getRepositoryUrl(),
                         event.getCommitSha(),
                         event.getCommitTimestamp(),
-                        event.getFiles(),
+                        filteredFiles,
                         event.getBranch()
                 );
             } catch (Exception e) {
@@ -174,5 +186,39 @@ public class SubscriptionController {
                         event.getStudentId(), event.getAssignmentId(), e.getMessage(), e);
             }
         });
+    }
+    
+    /**
+     * Filters files to only include files with configured file endings and valid content.
+     * File endings are configured in application.properties under student.code.submission.file-endings.
+     * 
+     * @param files map of file paths to file contents
+     * @return filtered map containing only valid files with configured endings
+     */
+    private Map<String, String> filterFiles(Map<String, String> files) {
+        if (files == null) {
+            return new HashMap<>();
+        }
+        
+        Map<String, String> filteredFiles = new HashMap<>();
+        
+        files.forEach((filename, content) -> {
+            if (filename != null && content != null && hasAllowedFileEnding(filename)) {
+                filteredFiles.put(filename, content);
+            }
+        });
+        
+        return filteredFiles;
+    }
+    
+    /**
+     * Checks if a filename ends with one of the configured file endings.
+     * 
+     * @param filename the filename to check
+     * @return true if the filename ends with an allowed ending, false otherwise
+     */
+    private boolean hasAllowedFileEnding(String filename) {
+        return studentCodeSubmissionConfig.getFileEndings().stream()
+                .anyMatch(filename::endsWith);
     }
 }
