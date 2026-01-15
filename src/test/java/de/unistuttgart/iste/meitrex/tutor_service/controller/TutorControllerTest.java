@@ -209,6 +209,28 @@ public class TutorControllerTest {
     }
 
     @Test
+    void testLatestProactiveFeedback_withFeedback() {
+        String feedback = "Great job on your assignment!";
+        when(tutorService.getLatestProactiveFeedback(loggedInUser))
+                .thenReturn(Optional.of(feedback));
+
+        String result = tutorController.latestProactiveFeedback(loggedInUser);
+
+        assertEquals(feedback, result);
+        verify(tutorService).getLatestProactiveFeedback(loggedInUser);
+    }
+
+    @Test
+    void testLatestProactiveFeedback_noFeedback() {
+        when(tutorService.getLatestProactiveFeedback(loggedInUser))
+                .thenReturn(Optional.empty());
+
+        String result = tutorController.latestProactiveFeedback(loggedInUser);
+
+        assertNull(result);
+    }
+
+    @Test
     void testProactiveFeedbackAdded_subscription() {
         UUID userId = UUID.randomUUID();
         Flux<ProactiveFeedback> mockFlux = Flux.empty();

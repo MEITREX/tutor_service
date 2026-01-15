@@ -10,4 +10,11 @@ type Query {
     Retrieves all proactive feedback for the current user, ordered by most recent first.
     """
     allProactiveFeedback: [ProactiveFeedback!]!
+    
+    """
+    Retrieves the latest proactive feedback for the current user (any assessment).
+    The feedback is deleted after retrieval and must be less than 30 minutes old.
+    Returns the feedback text or null if no feedback is available.
+    """
+    latestProactiveFeedback: String
 }
