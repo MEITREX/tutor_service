@@ -79,6 +79,20 @@ public class TutorController {
     }
 
     /**
+     * Retrieves the latest proactive feedback for the current user.
+     * The feedback is deleted after retrieval and must be less than 30 minutes old.
+     *
+     * @param currentUser the currently logged-in user
+     * @return feedback text if available, otherwise null
+     */
+    @QueryMapping
+    public String latestProactiveFeedback(
+            @ContextValue final LoggedInUser currentUser
+    ) {
+        return tutorService.getLatestProactiveFeedback(currentUser).orElse(null);
+    }
+
+    /**
      * GraphQL subscription for real-time proactive feedback.
      * Frontend subscribes to this and receives feedback automatically when generated.
      *

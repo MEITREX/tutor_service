@@ -69,7 +69,7 @@ public class TutorService {
     /**
      * Handles a user’s question by categorizing it and returning an appropriate response.
      * Lecture questions are further processed, while other categories currently return default answers.
-     * Special handling: if the user input is "proactivefeedback", retrieves and deletes the latest saved feedback for the user.
+
      *
      * @param userQuestion the question asked by the user
      * @param courseId     the ID of the course, required for lecture-related questions
@@ -77,17 +77,6 @@ public class TutorService {
      * @return a response object containing the answer or a default message
      */
     public LectureQuestionResponse handleUserQuestion(String userQuestion, UUID courseId, LoggedInUser currentUser){
-
-        // Special handling for proactive feedback retrieval. Will be removed once proactive feedback is integrated into the main flow and graphql works correctly.
-        if ("proactivefeedback".equalsIgnoreCase(userQuestion.trim())) {
-            Optional<String> feedback = proactiveFeedbackService.getAndDeleteLatestFeedback(currentUser.getId());
-            if (feedback.isPresent()) {
-                return new LectureQuestionResponse(feedback.get(), List.of());
-            } else {
-                return new LectureQuestionResponse("No proactive feedback available at the moment.", List.of());
-            }
-        }
-
         log.info("[TUTOR] User {} asked question: {}", currentUser.getId(), userQuestion);
 
         CategorizedQuestion categorizedQuestion = preprocessQuestion(userQuestion);
@@ -122,6 +111,17 @@ public class TutorService {
                     "At the moment, I can't answer any questions about the MEITREX system :(", List.of());
         }
         return new LectureQuestionResponse(ERROR_MESSAGE, List.of());
+    }
+
+    /**
+     * Retrieves the latest proactive feedback for the given user.
+     * The feedback is deleted after retrieval and must be less than 30 minutes old.
+     *
+     * @param currentUser the currently logged-in user
+     * @return optional containing feedback text if available, otherwise empty
+     */
+    public Optional<String> getLatestProactiveFeedback(LoggedInUser currentUser) {
+        return proactiveFeedbackService.getAndDeleteLatestFeedback(currentUser.getId());
     }
 
     private LectureQuestionResponse answerLectureQuestion(String question, UUID courseId, LoggedInUser currentUser){        

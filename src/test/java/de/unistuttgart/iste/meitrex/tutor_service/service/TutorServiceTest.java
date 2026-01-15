@@ -19,6 +19,8 @@ import java.util.UUID;
 import static de.unistuttgart.iste.meitrex.common.testutil.TestUsers.userWithMembershipInCourseWithId;
 import static org.mockito.Mockito.when;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class TutorServiceTest {
 
@@ -209,23 +211,24 @@ public class TutorServiceTest {
     }
 
     @Test
-    void testHandleUserQuestion_withProactiveFeedbackKeyword() {
+    void testGetLatestProactiveFeedback_withFeedback() {
         String feedback = "Great job on your assignment!";
         when(proactiveFeedbackService.getAndDeleteLatestFeedback(loggedInUser.getId()))
                 .thenReturn(Optional.of(feedback));
 
-        LectureQuestionResponse response = tutorService.handleUserQuestion("proactivefeedback", courseId, loggedInUser);
-        assertEquals(feedback, response.getAnswer());
+        Optional<String> response = tutorService.getLatestProactiveFeedback(loggedInUser);
+        assertTrue(response.isPresent());
+        assertEquals(feedback, response.get());
         Mockito.verify(proactiveFeedbackService).getAndDeleteLatestFeedback(loggedInUser.getId());
     }
 
     @Test
-    void testHandleUserQuestion_withProactiveFeedbackKeywordNoFeedback() {
+    void testGetLatestProactiveFeedback_withNoFeedback() {
         when(proactiveFeedbackService.getAndDeleteLatestFeedback(loggedInUser.getId()))
                 .thenReturn(Optional.empty());
 
-        LectureQuestionResponse response = tutorService.handleUserQuestion("proactivefeedback", courseId, loggedInUser);
-        assertEquals("No proactive feedback available at the moment.", response.getAnswer());
+        Optional<String> response = tutorService.getLatestProactiveFeedback(loggedInUser);
+        assertFalse(response.isPresent());
     }
 
     @Test
