@@ -28,6 +28,8 @@ services:
       - "1301:1301"
     depends_on:
       - database
+    env_file:
+      - ./../tutor_service/.env
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/tutor_service
       SPRING_DATASOURCE_USERNAME: root

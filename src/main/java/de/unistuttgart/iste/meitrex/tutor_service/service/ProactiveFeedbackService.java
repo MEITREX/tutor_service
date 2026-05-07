@@ -2,11 +2,10 @@ package de.unistuttgart.iste.meitrex.tutor_service.service;
 
 import de.unistuttgart.iste.meitrex.common.event.ContentProgressedEvent;
 import de.unistuttgart.iste.meitrex.common.event.HexadPlayerType;
+import de.unistuttgart.iste.meitrex.common.ollama.OllamaClient;
 import de.unistuttgart.iste.meitrex.generated.dto.ProactiveFeedback;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.entity.ProactiveFeedbackEntity;
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.entity.UserSkillLevelEntity;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.repository.ProactiveFeedbackRepository;
-import de.unistuttgart.iste.meitrex.tutor_service.service.models.TemplateArgs;
 import de.unistuttgart.iste.meitrex.tutor_service.service.models.TutorAnswer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +28,7 @@ import java.util.concurrent.ConcurrentMap;
 @RequiredArgsConstructor
 public class ProactiveFeedbackService {
 
-    private final OllamaService ollamaService;
+    private final OllamaClient ollamaClient;
     private final UserPlayerTypeService userPlayerTypeService;
     private final UserSkillLevelService userSkillLevelService;
     private final ProactiveFeedbackRepository proactiveFeedbackRepository;
@@ -105,33 +104,20 @@ public class ProactiveFeedbackService {
                 codeContext = getCodeContextForAssignment(event.getUserId(), event.getContentId());
             }
 
-            String prompt = ollamaService.getTemplate(FEEDBACK_PROMPT_TEMPLATE);
-            List<TemplateArgs> promptArgs = List.of(
-                    TemplateArgs.builder()
-                            .argumentName("correctness")
-                            .argumentValue(String.format("%.2f", event.getCorrectness()))
-                            .build(),
-                    TemplateArgs.builder()
-                            .argumentName("performance")
-                            .argumentValue(performanceContext)
-                            .build(),
-                    TemplateArgs.builder()
-                            .argumentName("individualizedPrompt")
-                            .argumentValue(individualizedPrompt)
-                            .build(),
-                    TemplateArgs.builder()
-                            .argumentName("codeContext")
-                            .argumentValue(codeContext)
-                            .build()
-            );
+                Map<String, String> promptArgs = Map.of(
+                    "correctness", String.format("%.2f", event.getCorrectness()),
+                    "performance", performanceContext,
+                    "individualizedPrompt", individualizedPrompt,
+                    "codeContext", codeContext
+                );
 
             String error = "Oops, something went wrong generating proactive feedback! Your correctness was " +
                     String.format("%.2f", event.getCorrectness()) +
                     ". Please try again later.";
 
-            TutorAnswer feedback = ollamaService.startQuery(
-                    TutorAnswer.class, 
-                    prompt, 
+            TutorAnswer feedback = ollamaClient.startQuery(
+                    TutorAnswer.class,
+                    FEEDBACK_PROMPT_TEMPLATE,
                     promptArgs, 
                     new TutorAnswer(error)
             );

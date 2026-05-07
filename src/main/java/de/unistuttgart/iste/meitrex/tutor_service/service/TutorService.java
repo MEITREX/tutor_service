@@ -6,6 +6,7 @@ import de.unistuttgart.iste.meitrex.common.event.RequestUserSkillLevelEvent;
 import de.unistuttgart.iste.meitrex.common.event.TutorCategory;
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
 import de.unistuttgart.iste.meitrex.common.dapr.TopicPublisher;
+import de.unistuttgart.iste.meitrex.common.ollama.OllamaClient;
 import de.unistuttgart.iste.meitrex.generated.dto.DocumentSource;
 import de.unistuttgart.iste.meitrex.generated.dto.LectureQuestionResponse;
 import de.unistuttgart.iste.meitrex.generated.dto.Source;
@@ -18,7 +19,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,7 +31,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TutorService {
 
-    private final OllamaService ollamaService;
+    private final OllamaClient ollamaClient;
     private final SemanticSearchService semanticSearchService;
     private final TopicPublisher topicPublisher;
     private final UserPlayerTypeService userPlayerTypeService;
@@ -79,7 +82,7 @@ public class TutorService {
     public LectureQuestionResponse handleUserQuestion(String userQuestion, UUID courseId, LoggedInUser currentUser){
         log.info("[TUTOR] User {} asked question: {}", currentUser.getId(), userQuestion);
 
-        CategorizedQuestion categorizedQuestion = preprocessQuestion(userQuestion);
+                CategorizedQuestion categorizedQuestion = preprocessQuestion(userQuestion);
 
         TutorCategory category = categorizedQuestion.getCategory();
 
@@ -158,28 +161,23 @@ public class TutorService {
         double averageSkillLevel = getAverageSkillLevel(currentUser.getId());
         log.info("User {} average skill level: {}", currentUser.getId(), averageSkillLevel);
         
-        String skillLevelPromotContent = getSkillBasedFeedbackStyle(averageSkillLevel);
+        String skillLevelPromptContent = getSkillBasedFeedbackStyle(averageSkillLevel);
 
         LectureQuestionResponse errorResponse = new LectureQuestionResponse(ERROR_MESSAGE, List.of());
-        String prompt = ollamaService.getTemplate(PROMPT_TEMPLATES.get(1));
         String contentString = semanticSearchService.formatIntoNumberedListForPrompt(
                 documentSegments.stream().map(DocumentRecordSegment::getText).toList());
         
         String conversationHistory = conversationHistoryService.formatHistoryForPrompt(
                 currentUser.getId(), courseId);
-        
-        log.info("Conversation history for user {} in course {}: {}", 
-                currentUser.getId(), courseId, conversationHistory.isEmpty() ? "No history" : "Has history");
 
-        List<TemplateArgs> promptArgs = List.of(
-            TemplateArgs.builder().argumentName("question").argumentValue(question).build(),
-            TemplateArgs.builder().argumentName("content").argumentValue(contentString).build(),
-            TemplateArgs.builder().argumentName("skill").argumentValue(skillLevelPromotContent).build(),
-            TemplateArgs.builder().argumentName("conversationHistory").argumentValue(conversationHistory).build()
-        );
+        Map<String, String> promptArgs = new HashMap<>();
+        promptArgs.put("question", question);
+        promptArgs.put("content", contentString);
+        promptArgs.put("skill", skillLevelPromptContent);
+        promptArgs.put("conversationHistory", conversationHistory);
 
-        TutorAnswer response = ollamaService.startQuery(
-                TutorAnswer.class, prompt, promptArgs, new TutorAnswer(ERROR_MESSAGE));
+        TutorAnswer response = ollamaClient.startQuery(
+                TutorAnswer.class, PROMPT_TEMPLATES.get(1), promptArgs, new TutorAnswer(ERROR_MESSAGE));
 
         conversationHistoryService.addConversationExchange(
                 currentUser.getId(), courseId, question, response.getAnswer());
@@ -269,23 +267,21 @@ public class TutorService {
 
         String skillLevelPromotContent = getSkillBasedFeedbackStyle(averageSkillLevel);
 
-        String prompt = ollamaService.getTemplate(PROMPT_TEMPLATES.get(3));
         String contentString = semanticSearchService.formatIntoNumberedListForPrompt(
                 documentSegments.stream().map(DocumentRecordSegment::getText).toList());
 
         log.info("Processing follow-up question for user {} in course {}",
                 currentUser.getId(), courseId);
 
-        List<TemplateArgs> promptArgs = List.of(
-                TemplateArgs.builder().argumentName("question").argumentValue(question).build(),
-                TemplateArgs.builder().argumentName("content").argumentValue(contentString).build(),
-                TemplateArgs.builder().argumentName("skill").argumentValue(skillLevelPromotContent).build(),
-                TemplateArgs.builder().argumentName("conversationHistory").argumentValue(conversationHistory).build(),
-                TemplateArgs.builder().argumentName("codeContext").argumentValue(codeContext).build()
-        );
+        Map<String, String> promptArgs = new HashMap<>();
+        promptArgs.put("question", question);
+        promptArgs.put("content", contentString);
+        promptArgs.put("skill", skillLevelPromotContent);
+        promptArgs.put("conversationHistory", conversationHistory);
+        promptArgs.put("codeContext", codeContext);
 
-        TutorAnswer response = ollamaService.startQuery(
-                TutorAnswer.class, prompt, promptArgs, new TutorAnswer(ERROR_MESSAGE));
+        TutorAnswer response = ollamaClient.startQuery(
+                TutorAnswer.class, PROMPT_TEMPLATES.get(3), promptArgs, new TutorAnswer(ERROR_MESSAGE));
 
         conversationHistoryService.addConversationExchange(
                 currentUser.getId(), courseId, question, response.getAnswer());
@@ -310,12 +306,10 @@ public class TutorService {
     private CategorizedQuestion preprocessQuestion(final String userQuestion){
         CategorizedQuestion error = new CategorizedQuestion("", TutorCategory.ERROR);
         String templateName = PROMPT_TEMPLATES.get(0);
-        List<TemplateArgs> preprocessArgs = List.of(TemplateArgs.builder()
-                .argumentName("question")
-                .argumentValue(userQuestion)
-                .build());
-        String prompt = ollamaService.getTemplate(templateName);
-        return ollamaService.startQuery(CategorizedQuestion.class, prompt, preprocessArgs, error);
+        Map<String, String> preprocessArgs = new HashMap<>();
+        preprocessArgs.put("question", userQuestion);
+
+        return ollamaClient.startQuery(CategorizedQuestion.class, templateName, preprocessArgs, error);
     }
 
     private Source generateSource(SemanticSearchResult result){
@@ -397,16 +391,14 @@ public class TutorService {
         log.info("[TUTOR-CODE-FEEDBACK] Preparing to query LLM for code feedback - user: {}, assignment: {}, code context length: {}",
                 currentUser.getId(), mostRecentSubmission.getPrimaryKey().getAssignmentId(), codeContext.get().length());
 
-        String prompt = ollamaService.getTemplate(PROMPT_TEMPLATES.get(2));
-        List<TemplateArgs> promptArgs = List.of(
-                TemplateArgs.builder().argumentName("question").argumentValue(question).build(),
-                TemplateArgs.builder().argumentName("codeContext").argumentValue(codeContext.get()).build(),
-                TemplateArgs.builder().argumentName("feedbackStyle").argumentValue(feedbackStyle).build(),
-                TemplateArgs.builder().argumentName("conversationHistory").argumentValue(conversationHistory).build()
-        );
+        Map<String, String> promptArgs = new HashMap<>();
+        promptArgs.put("question", question);
+        promptArgs.put("codeContext", codeContext.get());
+        promptArgs.put("feedbackStyle", feedbackStyle);
+        promptArgs.put("conversationHistory", conversationHistory);
 
-        TutorAnswer response = ollamaService.startQuery(
-                TutorAnswer.class, prompt, promptArgs, new TutorAnswer(ERROR_MESSAGE));
+        TutorAnswer response = ollamaClient.startQuery(
+                TutorAnswer.class, PROMPT_TEMPLATES.get(2), promptArgs, new TutorAnswer(ERROR_MESSAGE));
 
         conversationHistoryService.addConversationExchange(
                 currentUser.getId(), courseId, question, response.getAnswer());

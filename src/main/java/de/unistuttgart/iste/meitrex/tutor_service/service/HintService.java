@@ -2,6 +2,7 @@ package de.unistuttgart.iste.meitrex.tutor_service.service;
 
 import de.unistuttgart.iste.meitrex.common.event.HexadPlayerType;
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
+import de.unistuttgart.iste.meitrex.common.ollama.OllamaClient;
 import de.unistuttgart.iste.meitrex.generated.dto.*;
 import de.unistuttgart.iste.meitrex.tutor_service.service.models.*;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -18,7 +20,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class HintService {
-    private final OllamaService ollamaService;
+    private final OllamaClient ollamaClient;
     private final SemanticSearchService semanticSearchService;
     private final UserPlayerTypeService userPlayerTypeService;
 
@@ -41,11 +43,11 @@ public class HintService {
         // First fill the prompt corresponding to the question type
         HintGenerationData generationData = getGenerationData(input);
         String promptName = PROMPT_TEMPLATES.get("QUESTION").replace("{QUESTION_TYPE}", input.getType().toString());
-        String questionPrompt = ollamaService.getTemplate(promptName);
-        List<TemplateArgs> questionPromptArgs = List.of(
-                TemplateArgs.builder().argumentName("questionText").argumentValue(generationData.getQuestionText()).build(),
-                TemplateArgs.builder().argumentName("options").argumentValue(generationData.getOptionsText()).build());
-        questionPrompt = ollamaService.fillTemplate(questionPrompt, questionPromptArgs);
+        String questionPrompt = ollamaClient.getTemplate(promptName);
+        Map<String, String> questionPromptArgs = new HashMap<>();
+        questionPromptArgs.put("questionText", generationData.getQuestionText());
+        questionPromptArgs.put("options", generationData.getOptionsText());
+        questionPrompt = ollamaClient.fillTemplate(questionPrompt, questionPromptArgs);
 
         /*
         * Perform a semantic search using the query defined in HintGenerationData
@@ -72,17 +74,20 @@ public class HintService {
         * Now generate the hint given the question, answer options (which is injected via the questionPrompt) and
         * the text inside segments which have been found relevant via the semantic search
         */
-        String prompt = ollamaService.getTemplate(PROMPT_TEMPLATES.get("GENERATION"));
         String contentString = semanticSearchService.formatIntoNumberedListForPrompt(
                 documentSegments.stream().map(DocumentRecordSegment::getText).toList());
         String gamificationPrompt = generateGamificationPrompt(courseId, currentUser);
-        List<TemplateArgs> promptArgs = List.of(
-                TemplateArgs.builder().argumentName("questionPrompt").argumentValue(questionPrompt).build(),
-                TemplateArgs.builder().argumentName("content").argumentValue(contentString).build(),
-                TemplateArgs.builder().argumentName("gamificationPrompt").argumentValue(gamificationPrompt).build()
-        );
+        Map<String, String> promptArgs = new HashMap<>();
+        promptArgs.put("questionPrompt", questionPrompt);
+        promptArgs.put("content", contentString);
+        promptArgs.put("gamificationPrompt", gamificationPrompt);
 
-        return ollamaService.startQuery(HintResponse.class, prompt, promptArgs, new HintResponse("An error occurred"));
+        return ollamaClient.startQuery(
+                HintResponse.class,
+                PROMPT_TEMPLATES.get("GENERATION"),
+                promptArgs,
+                new HintResponse("An error occurred")
+        );
     }
 
     /**
@@ -160,12 +165,14 @@ public class HintService {
                     .toList());
 
         // Generate a semantic search query based on the question text and the pairs
-        List<TemplateArgs> promptArgs = List.of(
-            TemplateArgs.builder().argumentName("pairs").argumentValue(optionsString).build()
+        Map<String, String> promptArgs = new HashMap<>();
+        promptArgs.put("pairs", optionsString);
+        SemanticSearchQuery semanticSearchQuery = ollamaClient.startQuery(
+                SemanticSearchQuery.class,
+                PROMPT_TEMPLATES.get("SEMANTIC_SEARCH_QUERY_ASSOCIATION"),
+                promptArgs ,
+                new SemanticSearchQuery(questionText)
         );
-        String promptName = ollamaService.getTemplate(PROMPT_TEMPLATES.get("SEMANTIC_SEARCH_QUERY_ASSOCIATION"));
-        SemanticSearchQuery semanticSearchQuery = ollamaService.startQuery(
-                SemanticSearchQuery.class, promptName, promptArgs , new SemanticSearchQuery(questionText));
 
         log.info("Generated search query {}", semanticSearchQuery.getQuery());
 
@@ -185,13 +192,15 @@ public class HintService {
         String optionsString = semanticSearchService.formatIntoNumberedListForPrompt(blanks);
 
         // Generate a semantic search query based on the cloze and its corresponding answer options
-        List<TemplateArgs> promptArgs = List.of(
-            TemplateArgs.builder().argumentName("clozeText").argumentValue(questionText).build(),
-            TemplateArgs.builder().argumentName("answers").argumentValue(optionsString).build()
+        Map<String, String> promptArgs = new HashMap<>();
+        promptArgs.put("clozeText", questionText);
+        promptArgs.put("answers", optionsString);
+        SemanticSearchQuery semanticSearchQuery = ollamaClient.startQuery(
+                SemanticSearchQuery.class,
+                PROMPT_TEMPLATES.get("SEMANTIC_SEARCH_QUERY_CLOZE"),
+                promptArgs,
+                new SemanticSearchQuery(questionText)
         );
-        String promptName = ollamaService.getTemplate(PROMPT_TEMPLATES.get("SEMANTIC_SEARCH_QUERY_CLOZE"));
-        SemanticSearchQuery semanticSearchQuery = ollamaService.startQuery(
-                SemanticSearchQuery.class, promptName, promptArgs , new SemanticSearchQuery(questionText));
 
         log.info("Generated search query {}", semanticSearchQuery.getQuery());
 
