@@ -2,8 +2,9 @@ package de.unistuttgart.iste.meitrex.tutor_service.service;
 
 import de.unistuttgart.iste.meitrex.common.event.ContentProgressedEvent;
 import de.unistuttgart.iste.meitrex.common.event.HexadPlayerType;
+
+import de.unistuttgart.iste.meitrex.common.ollama.OllamaClient;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.entity.ProactiveFeedbackEntity;
-import de.unistuttgart.iste.meitrex.tutor_service.persistence.entity.StudentCodeSubmissionEntity;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.entity.UserPlayerTypeEntity;
 import de.unistuttgart.iste.meitrex.tutor_service.persistence.repository.ProactiveFeedbackRepository;
 import de.unistuttgart.iste.meitrex.tutor_service.service.models.TutorAnswer;
@@ -17,12 +18,12 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -33,7 +34,7 @@ import static org.mockito.Mockito.*;
 class ProactiveFeedbackServiceTest {
 
     @Mock
-    private OllamaService ollamaService;
+    private OllamaClient ollamaClient;
 
     @Mock
     private UserPlayerTypeService userPlayerTypeService;
@@ -79,8 +80,7 @@ class ProactiveFeedbackServiceTest {
         String codeContext = "Repository: https://github.com/test/repo\nFile: Main.java\npublic class Main {}";
         String expectedFeedback = "Great job on your assignment! Your code shows good structure.";
 
-        when(ollamaService.getTemplate(anyString())).thenReturn("Mock template");
-        when(ollamaService.startQuery(eq(TutorAnswer.class), anyString(), anyList(), any()))
+        when(ollamaClient.startQuery(eq(TutorAnswer.class), anyString(), anyMap(), any()))
                 .thenReturn(new TutorAnswer(expectedFeedback));
         when(userPlayerTypeService.getPrimaryPlayerType(userId)).thenReturn(Optional.empty());
         when(studentCodeSubmissionService.getCodeSubmissionContextForTutor(userId, assignmentId))
@@ -112,8 +112,7 @@ class ProactiveFeedbackServiceTest {
 
         String expectedFeedback = "Good work on the quiz! You demonstrated solid understanding.";
 
-        when(ollamaService.getTemplate(anyString())).thenReturn("Mock template");
-        when(ollamaService.startQuery(eq(TutorAnswer.class), anyString(), anyList(), any()))
+        when(ollamaClient.startQuery(eq(TutorAnswer.class), anyString(), anyMap(), any()))
                 .thenReturn(new TutorAnswer(expectedFeedback));
         when(userPlayerTypeService.getPrimaryPlayerType(userId)).thenReturn(Optional.empty());
         when(proactiveFeedbackRepository.save(any())).thenAnswer(invocation -> {
@@ -144,8 +143,7 @@ class ProactiveFeedbackServiceTest {
 
         String expectedFeedback = "Excellent work on your assignment!";
 
-        when(ollamaService.getTemplate(anyString())).thenReturn("Mock template");
-        when(ollamaService.startQuery(eq(TutorAnswer.class), anyString(), anyList(), any()))
+        when(ollamaClient.startQuery(eq(TutorAnswer.class), anyString(), anyMap(), any()))
                 .thenReturn(new TutorAnswer(expectedFeedback));
         when(userPlayerTypeService.getPrimaryPlayerType(userId)).thenReturn(Optional.empty());
         when(studentCodeSubmissionService.getCodeSubmissionContextForTutor(userId, assignmentId))
@@ -188,8 +186,7 @@ class ProactiveFeedbackServiceTest {
                 .disruptorScore(0.2)
                 .build();
 
-        when(ollamaService.getTemplate(anyString())).thenReturn("Mock template");
-        when(ollamaService.startQuery(eq(TutorAnswer.class), anyString(), anyList(), any()))
+        when(ollamaClient.startQuery(eq(TutorAnswer.class), anyString(), anyMap(), any()))
                 .thenReturn(new TutorAnswer(expectedFeedback));
         when(userPlayerTypeService.getPrimaryPlayerType(userId))
                 .thenReturn(Optional.of(HexadPlayerType.ACHIEVER));
@@ -231,8 +228,7 @@ class ProactiveFeedbackServiceTest {
                 .disruptorScore(0.85)
                 .build();
 
-        when(ollamaService.getTemplate(anyString())).thenReturn("Mock template");
-        when(ollamaService.startQuery(eq(TutorAnswer.class), anyString(), anyList(), any()))
+        when(ollamaClient.startQuery(eq(TutorAnswer.class), anyString(), anyMap(), any()))
                 .thenReturn(new TutorAnswer(expectedFeedback));
         when(userPlayerTypeService.getPrimaryPlayerType(userId))
                 .thenReturn(Optional.of(HexadPlayerType.DISRUPTOR));
@@ -263,7 +259,8 @@ class ProactiveFeedbackServiceTest {
                 .success(true)
                 .build();
 
-        when(ollamaService.getTemplate(anyString())).thenThrow(new RuntimeException("Test exception"));
+        when(ollamaClient.startQuery(eq(TutorAnswer.class), anyString(), anyMap(), any()))
+                .thenThrow(new RuntimeException("Test exception"));
 
         String result = proactiveFeedbackService.generateFeedback(event);
 

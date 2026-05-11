@@ -3,6 +3,7 @@ package de.unistuttgart.iste.meitrex.tutor_service.service;
 
 import de.unistuttgart.iste.meitrex.common.dapr.TopicPublisher;
 import de.unistuttgart.iste.meitrex.common.event.TutorCategory;
+import de.unistuttgart.iste.meitrex.common.ollama.OllamaClient;
 import de.unistuttgart.iste.meitrex.common.testutil.InjectCurrentUserHeader;
 import de.unistuttgart.iste.meitrex.common.user_handling.LoggedInUser;
 import de.unistuttgart.iste.meitrex.generated.dto.LectureQuestionResponse;
@@ -24,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class TutorServiceTest {
 
-    private final OllamaService ollamaService = Mockito.mock(OllamaService.class);
+        private final OllamaClient ollamaClient = Mockito.mock(OllamaClient.class);
     private final SemanticSearchService semanticSearchService = Mockito.mock(SemanticSearchService.class);
     private final TopicPublisher topicPublisher = Mockito.mock(TopicPublisher.class);
     private final UserPlayerTypeService userPlayerTypeService = Mockito.mock(UserPlayerTypeService.class);
@@ -36,7 +37,7 @@ public class TutorServiceTest {
 
     @BeforeEach
     void setUp() {
-        tutorService = new TutorService(ollamaService, semanticSearchService, topicPublisher, 
+                tutorService = new TutorService(ollamaClient, semanticSearchService, topicPublisher, 
                 userPlayerTypeService, userSkillLevelService, proactiveFeedbackService, 
                 conversationHistoryService, studentCodeSubmissionService);
         ReflectionTestUtils.setField(tutorService, "scoreThreshold", 0.4);
@@ -50,8 +51,7 @@ public class TutorServiceTest {
     void testHandleUserQuestion_withUnrecognizableCategory() {
         String question = "jchbjshbcjhsdbc";
         CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question, TutorCategory.UNRECOGNIZABLE);
-        when(ollamaService.startQuery(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(categorizedQuestion);
-        when(ollamaService.getTemplate(Mockito.any())).thenReturn("Mocked Prompt");
+        when(ollamaClient.startQuery(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(categorizedQuestion);
 
         LectureQuestionResponse response = tutorService.handleUserQuestion(question, null, loggedInUser);
         assertEquals("Unfortunately, I couldn't understand your question. " +
@@ -63,8 +63,7 @@ public class TutorServiceTest {
     void testHandleUserQuestion_withOtherCategory() {
         String question = "Gib mir ein Rezept für Schokokuchen";
         CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question,TutorCategory.OTHER);
-        when(ollamaService.startQuery(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(categorizedQuestion);
-        when(ollamaService.getTemplate(Mockito.any())).thenReturn("Mocked Prompt");
+        when(ollamaClient.startQuery(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(categorizedQuestion);
         when(conversationHistoryService.formatHistoryForPrompt(Mockito.any(), Mockito.any())).thenReturn("");
         when(studentCodeSubmissionService.getCodeSubmissionsForStudent(Mockito.any())).thenReturn(List.of());
 
@@ -78,8 +77,7 @@ public class TutorServiceTest {
     void testHandleUserQuestion_withLectureCategoryNoCourseId() {
         String question = "What is the difference between supervised and unsupervised training?";
         CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question,TutorCategory.LECTURE);
-        when(ollamaService.startQuery(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(categorizedQuestion);
-        when(ollamaService.getTemplate(Mockito.any())).thenReturn("Mocked Prompt");
+        when(ollamaClient.startQuery(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(categorizedQuestion);
 
         String expectedAnswer = "Something went wrong! If your question is about lecture materials, " +
                 "please navigate to the course it relates to. Thank you! :)";
@@ -107,11 +105,10 @@ public class TutorServiceTest {
         String expectedAnswer = dummyResults.size() + " relevant segments were found. " +
                 "At the moment, I’m not yet able to answer questions about the course material :(";
 
-        when(ollamaService.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(categorizedQuestion);
-        when(ollamaService.getTemplate(Mockito.any())).thenReturn("Mocked Prompt");
+        when(ollamaClient.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(categorizedQuestion);
         when(semanticSearchService.semanticSearch(Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(dummyResults);
         when(semanticSearchService.formatIntoNumberedListForPrompt(Mockito.any())).thenReturn("Mocked content");
-        when(ollamaService.startQuery(Mockito.eq(TutorAnswer.class), Mockito.any(), Mockito.any(),
+        when(ollamaClient.startQuery(Mockito.eq(TutorAnswer.class), Mockito.any(), Mockito.any(),
                 Mockito.any())).thenReturn(new TutorAnswer(expectedAnswer));
         when(userSkillLevelService.getAllSkillLevelsForUser(Mockito.any())).thenReturn(List.of());
         when(conversationHistoryService.formatHistoryForPrompt(Mockito.any(), Mockito.any())).thenReturn("");
@@ -125,9 +122,8 @@ public class TutorServiceTest {
     void testHandleUserQuestion_withSystemCategory() {
         String question = "Where do i upload my assignment?";
         CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question,TutorCategory.SYSTEM);
-        when(ollamaService.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(),
+        when(ollamaClient.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(),
                 Mockito.any())).thenReturn(categorizedQuestion);
-        when(ollamaService.getTemplate(Mockito.any())).thenReturn("Mocked Prompt");
 
         LectureQuestionResponse response = tutorService.handleUserQuestion(question, null, loggedInUser);
         assertEquals("At the moment, I can't answer any questions about the MEITREX system :(",
@@ -140,9 +136,8 @@ public class TutorServiceTest {
         String expectedAnswer = "No answer was found in the lecture.";
 
         // Mock PreProcess to be a Lecture Question
-        when(ollamaService.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(),
+        when(ollamaClient.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(),
                 Mockito.any())).thenReturn(new CategorizedQuestion(question,TutorCategory.LECTURE));
-        when(ollamaService.getTemplate(Mockito.any())).thenReturn("Mocked Prompt");
 
         when(semanticSearchService.semanticSearch(Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(List.of());
         LectureQuestionResponse response = tutorService.handleUserQuestion(question, courseId, loggedInUser);
@@ -167,9 +162,8 @@ public class TutorServiceTest {
         );
 
         // Mock PreProcess to be a Lecture Question
-        when(ollamaService.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(),
+        when(ollamaClient.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(),
                 Mockito.any())).thenReturn(new CategorizedQuestion(question,TutorCategory.LECTURE));
-        when(ollamaService.getTemplate(Mockito.any())).thenReturn("Mocked Prompt");
         when(semanticSearchService.semanticSearch(Mockito.any(), Mockito.any(),
                 Mockito.any())).thenReturn(dummyResults);
 
@@ -181,9 +175,8 @@ public class TutorServiceTest {
     void testHandleUserQuestion_withCodeFeedbackCategoryNoCourseId() {
         String question = "Can you review my code?";
         CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question, TutorCategory.CODE_FEEDBACK);
-        when(ollamaService.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(), Mockito.any()))
+        when(ollamaClient.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(), Mockito.any()))
                 .thenReturn(categorizedQuestion);
-        when(ollamaService.getTemplate(Mockito.any())).thenReturn("Mocked Prompt");
 
         String expectedAnswer = "Something went wrong! If your question is about code for an assignment, " +
                 "please navigate to the course it relates to. Thank you! :)";
@@ -197,9 +190,8 @@ public class TutorServiceTest {
         String question = "Can you review my code?";
         CategorizedQuestion categorizedQuestion = new CategorizedQuestion(question, TutorCategory.CODE_FEEDBACK);
         
-        when(ollamaService.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(), Mockito.any()))
+        when(ollamaClient.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(), Mockito.any()))
                 .thenReturn(categorizedQuestion);
-        when(ollamaService.getTemplate(Mockito.any())).thenReturn("Mocked Prompt");
         when(studentCodeSubmissionService.getCodeSubmissionsForStudent(Mockito.any())).thenReturn(List.of());
 
         String expectedAnswer = "I couldn't find any code submission from you. " +
@@ -254,11 +246,10 @@ public class TutorServiceTest {
                         .build()
         );
         
-        when(ollamaService.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(), Mockito.any()))
+        when(ollamaClient.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(), Mockito.any()))
                 .thenReturn(categorizedQuestion);
-        when(ollamaService.startQuery(Mockito.eq(TutorAnswer.class), Mockito.any(), Mockito.any(), Mockito.any()))
+        when(ollamaClient.startQuery(Mockito.eq(TutorAnswer.class), Mockito.any(), Mockito.any(), Mockito.any()))
                 .thenReturn(tutorAnswer);
-        when(ollamaService.getTemplate(Mockito.any())).thenReturn("Mocked Prompt");
         when(conversationHistoryService.formatHistoryForPrompt(Mockito.any(), Mockito.any()))
                 .thenReturn("Previous conversation history");
         when(studentCodeSubmissionService.getCodeSubmissionsForStudent(Mockito.any()))
@@ -287,11 +278,10 @@ public class TutorServiceTest {
                         .build()
         );
         
-        when(ollamaService.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(), Mockito.any()))
+        when(ollamaClient.startQuery(Mockito.eq(CategorizedQuestion.class), Mockito.any(), Mockito.any(), Mockito.any()))
                 .thenReturn(categorizedQuestion);
-        when(ollamaService.startQuery(Mockito.eq(TutorAnswer.class), Mockito.any(), Mockito.any(), Mockito.any()))
+        when(ollamaClient.startQuery(Mockito.eq(TutorAnswer.class), Mockito.any(), Mockito.any(), Mockito.any()))
                 .thenReturn(tutorAnswer);
-        when(ollamaService.getTemplate(Mockito.any())).thenReturn("Mocked Prompt");
         when(conversationHistoryService.formatHistoryForPrompt(Mockito.any(), Mockito.any()))
                 .thenReturn("Previous conversation history");
         when(studentCodeSubmissionService.getCodeSubmissionsForStudent(Mockito.any()))
